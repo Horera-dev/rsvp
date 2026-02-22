@@ -8,6 +8,10 @@ pub fn determine_orp(word: &[char]) -> usize {
     }
 }
 
-pub fn determine_frame_duration() -> u32 {
-    return 32;
+pub fn determine_frame_duration(word: &str, frames_per_word: u32) -> u32 {
+    match word.len() {
+        len if len <= 3 => frames_per_word.saturating_sub(2),
+        len if len >= 10 => frames_per_word.saturating_sub(3),
+        _ => frames_per_word,
+    }
 }
