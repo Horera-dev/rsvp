@@ -5,6 +5,7 @@ mod renderer;
 mod rsvp;
 
 use ab_glyph::FontRef;
+use anyhow::Context;
 
 use crate::{
     io::{load_config, load_font_data},
@@ -24,9 +25,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test
     draw_basic();
 
-    let config = load_config("../configuration.toml");
-    let font_data = load_font_data(&config);
-    let font: FontRef = FontRef::try_from_slice(&font_data).expect("Error loading font");
+    let config = load_config("configuration.toml")?;
+    let font_data = load_font_data(&config)?;
+    let font: FontRef = FontRef::try_from_slice(&font_data)
+        .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
 
     // 1. Spawn FFmpeg process
     let mut child = spawn_ffmpeg_process(&config)?;

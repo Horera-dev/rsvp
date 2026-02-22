@@ -32,20 +32,6 @@ pub fn spawn_ffmpeg_process(config: &Config) -> Result<std::process::Child, std:
         .spawn()
 }
 
-pub fn handle_completion(
-    status: std::process::ExitStatus,
-    render_result: Result<(), Box<dyn std::error::Error>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if !status.success() {
-        eprintln!("FFmpeg exited with an error status: {}", status);
-    }
-
-    render_result?; // Propagate any pipe errors
-
-    println!("Video generated successfully.");
-    Ok(())
-}
-
 pub fn process_blocks(
     stdin: &mut ChildStdin,
     config: &Config,
@@ -80,5 +66,19 @@ pub fn process_blocks(
             block_elapsed_ms += word_duration_ms;
         }
     }
+    Ok(())
+}
+
+pub fn handle_completion(
+    status: std::process::ExitStatus,
+    render_result: Result<(), Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !status.success() {
+        eprintln!("FFmpeg exited with an error status: {}", status);
+    }
+
+    render_result?; // Propagate any pipe errors
+
+    println!("Video generated successfully.");
     Ok(())
 }
