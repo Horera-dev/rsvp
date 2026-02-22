@@ -6,24 +6,22 @@ font_path = "assets/Roboto-Black.ttf"
 scale = 100.0
 
 [[blocks]]
-text = "Welcome to the RSVP generator."
+text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In volutpat eros id nisi dictum porttitor. Proin tristique a magna non egestas. Maecenas laoreet erat eu leo ultrices, quis laoreet ante sodales. Sed dapibus massa vel erat commodo ultrices. Nam ut metus venenatis, aliquam velit convallis, auctor sapien. Morbi et enim at purus ornare consequat vel sit amet sem. Suspendisse pretium justo vitae massa rutrum elementum. Sed nec tellus eget eros maximus ultricies. Phasellus aliquam at purus ac malesuada."
 wpm_from = 200.0
 wpm_to = 200.0
-duration_ms = 2000
 easing = "linear"
 
 [[blocks]]
-text = "We are now accelerating your reading speed significantly!"
+text = "Mauris ac ligula tristique, auctor sem quis, tincidunt metus. Sed imperdiet ut erat in porttitor. Donec malesuada erat at felis suscipit tincidunt. Quisque a varius sapien, et elementum eros. Donec maximus egestas sapien nec vulputate. Donec congue blandit risus fermentum rutrum. Pellentesque consequat metus vitae mauris condimentum, in viverra mi volutpat. Proin nec sapien vulputate metus dignissim ultricies."
 wpm_from = 200.0
 wpm_to = 600.0
-duration_ms = 5000
 easing = "linear"
+scale = 150.0
 
 
 [[blocks]]
-text = "What are we even doing?"
+text = "Cras vestibulum vestibulum nulla ut interdum. Nunc fringilla odio eu consequat volutpat. Nullam fermentum blandit commodo. Donec dictum gravida libero id efficitur. Sed in risus velit. Aenean rhoncus est at odio convallis fringilla. Cras tempor, nibh non gravida tempus, diam turpis semper lorem, id luctus lectus felis nec enim."
 wpm_from = 600.0
 wpm_to = 600.0
-duration_ms = 2000
 easing = "linear"
-scale = 80.0
+scale = 60.0

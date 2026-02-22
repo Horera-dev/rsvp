@@ -1,12 +1,16 @@
 use std::{
     error::Error,
     io::Write,
-    process::{ChildStdin, Command, Stdio},
+    process::{Child, ChildStdin, Command, Stdio},
 };
 
 use ab_glyph::FontRef;
 
-use crate::{config::Config, renderer, rsvp::get_current_wpm};
+use crate::{
+    config::Config,
+    renderer,
+    rsvp::{apply_easing_wpm, apply_punctuation, clean_word, compute_progress},
+};
 
 pub fn spawn_ffmpeg_process(config: &Config) -> Result<std::process::Child, std::io::Error> {
     Command::new("ffmpeg")
@@ -37,80 +41,62 @@ pub fn process_blocks(
     config: &Config,
     font: &FontRef,
 ) -> Result<(), Box<dyn Error>> {
-    const PUNCTUATION: [char; 5] = ['.', '!', '?', ';', ','];
-
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
         let scale_to_use = block.get_scale(config.settings.scale);
 
-        // 1. Calculate the total "Time-Weight" of the block.
-        // Instead of just characters, we account for speed (WPM) at each step.
-        let mut total_time_weight: f32 = 0.0;
-        let mut word_weights = Vec::with_capacity(words.len());
+        // We use a float to track fractional frames to prevent "micro-stutters"
+        let mut fractional_frames_buffer: f32 = 0.0;
 
         for (i, word) in words.iter().enumerate() {
-            let progress = i as f32 / words.len() as f32;
-            let current_wpm = get_current_wpm(block, progress);
+            // Compute the speed for this specific word
+            let progress = compute_progress(words.len(), i);
+            let current_wpm = apply_easing_wpm(block, progress);
 
-            // Weight = Length / Speed.
-            // Punctuation bonus: slightly more weight for sentence ends
-            let punctuation_bonus = if word.ends_with(PUNCTUATION) {
-                1.3
-            } else {
-                1.0
-            };
+            // Convert WPM to Frames
+            // Calculation: (60 sec / WPM) * FPS * bonus
+            let word_duration_base = (config.settings.fps / current_wpm) * config.settings.fps;
+            let word_duration_weighted = word_duration_base * apply_punctuation(word);
 
-            // A long word at slow speed has a huge weight.
-            // A short word at high speed has a tiny weight.
-            let weight = (word.len() as f32 * punctuation_bonus) / current_wpm;
-            word_weights.push(weight);
-            total_time_weight += weight;
-        }
+            // Handle frame distribution
+            // We add the fractional remainder from the last word to the current word
+            let total_frames_raw = word_duration_weighted + fractional_frames_buffer;
+            let frames_to_render = total_frames_raw.round();
+            fractional_frames_buffer = total_frames_raw - frames_to_render;
 
-        // 2. Determine total frame pool
-        let total_duration_secs = block.duration_ms as f32 / 1000.0;
-        let total_frames = (total_duration_secs * config.settings.fps) as u32;
-
-        let mut cumulative_weight = 0.0;
-        let mut frames_already_piped = 0;
-
-        for (i, word) in words.iter().enumerate() {
-            cumulative_weight += word_weights[i];
-
-            // Instead of rounding word-by-word, we calculate where we SHOULD be
-            // in the total timeline at the end of this word.
-            let target_total_frames =
-                ((cumulative_weight / total_time_weight) * total_frames as f32).round() as u32;
-
-            // The frames for THIS word is the difference
-            let word_frames = target_total_frames - frames_already_piped;
-            frames_already_piped += word_frames;
-
-            if word_frames == 0 {
+            if frames_to_render < 1.0 {
                 continue;
             }
 
-            // Render and Pipe
+            // Render
+            let cleaned_word = clean_word(word);
             let frame_data = renderer::draw_word_to_frame(
-                word,
+                cleaned_word,
                 config.settings.width,
                 config.settings.height,
                 scale_to_use,
                 font,
             );
 
-            for _ in 0..word_frames {
+            // Pipe
+            for _ in 0..(frames_to_render as u32) {
                 stdin.write_all(&frame_data)?;
             }
         }
     }
+
     Ok(())
 }
 
 pub fn handle_completion(
-    status: std::process::ExitStatus,
+    child: &mut Child,
+    stdin: ChildStdin,
     render_result: Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Cleanup: Close stdin and wait for the process to finish
+    drop(stdin);
+    let status = child.wait()?;
+
     if !status.success() {
         eprintln!("FFmpeg exited with an error status: {}", status);
     }

@@ -20,8 +20,7 @@ pub struct Block {
     pub text: String,
     pub wpm_from: f32,
     pub wpm_to: f32,
-    pub duration_ms: u32, // Duration of the whole block in milliseconds
-    pub easing: String,   // "linear" or "instant"
+    pub easing: String, // "linear" or "instant"
     pub scale: Option<f32>,
 }
 

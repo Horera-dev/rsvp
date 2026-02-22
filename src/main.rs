@@ -29,19 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font_data = load_font_data(&config)?;
     let font: FontRef = FontRef::try_from_slice(&font_data)
         .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
-
-    // 1. Spawn FFmpeg process
     let mut child = spawn_ffmpeg_process(&config)?;
     let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-
-    // 4. Processing Loop
-    // We use a block here to ensure stdin is dropped (closed)
-    // before we wait, otherwise ffmpeg will wait forever for more data.
     let render_result = process_blocks(&mut stdin, &config, &font);
-
-    // 3. Cleanup: Close stdin and wait for the process to finish
-    drop(stdin);
-    let status = child.wait()?;
-
-    handle_completion(status, render_result)
+    handle_completion(&mut child, stdin, render_result)
 }
