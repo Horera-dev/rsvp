@@ -11,12 +11,9 @@ pub fn determine_orp(word: &[char]) -> usize {
     }
 }
 
-pub fn draw_word_to_frame(word: &str, width: u32, height: u32) -> Vec<u8> {
+pub fn draw_word_to_frame(word: &str, width: u32, height: u32, font: &FontRef) -> Vec<u8> {
     // --- Prepare font settings ---
     let mut img = RgbImage::new(width, height);
-    // Load Font (Include bytes at compile time for simplicity)
-    let font_data = include_bytes!("../assets/Roboto-Black.ttf");
-    let font = FontRef::try_from_slice(font_data).expect("Error loading font");
     let scale = PxScale::from(100.0);
     let scaled_font = font.as_scaled(scale);
 
