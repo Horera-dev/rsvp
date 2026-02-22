@@ -1,0 +1,19 @@
+[settings]
+width = 1920
+height = 1080
+fps = 60.0
+font_path = "assets/Roboto-Black.ttf"
+
+[[blocks]]
+text = "Welcome to the RSVP generator."
+wpm_from = 200.0
+wpm_to = 200.0
+duration_ms = 2000
+easing = "linear"
+
+[[blocks]]
+text = "We are now accelerating your reading speed significantly!"
+wpm_from = 200.0
+wpm_to = 600.0
+duration_ms = 5000
+easing = "linear"

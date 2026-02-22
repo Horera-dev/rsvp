@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 ab_glyph = "0.2.32"
 image = "0.25.9"
+serde =  { version = "1.0.228", features = ["derive"] }
+toml = "1.0.2"

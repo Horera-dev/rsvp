@@ -1,13 +1,24 @@
+use serde::Deserialize;
+
+#[derive(Deserialize)]
 pub struct Config {
+    pub settings: GlobalSettings,
+    pub blocks: Vec<Block>,
+}
+
+#[derive(Deserialize)]
+pub struct GlobalSettings {
     pub width: u32,
     pub height: u32,
     pub fps: f32,
-    pub wpm: f32,
-    pub phrase: String,
+    pub font_path: String,
 }
 
-impl Config {
-    pub fn frames_per_word(&self) -> u32 {
-        (60.0 / self.wpm * self.fps) as u32
-    }
+#[derive(Deserialize)]
+pub struct Block {
+    pub text: String,
+    pub wpm_from: f32,
+    pub wpm_to: f32,
+    pub duration_ms: u32, // Duration of the whole block in milliseconds
+    pub easing: String,   // "linear" or "instant"
 }
