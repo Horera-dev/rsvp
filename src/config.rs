@@ -12,6 +12,7 @@ pub struct GlobalSettings {
     pub height: u32,
     pub fps: f32,
     pub font_path: String,
+    pub scale: f32,
 }
 
 #[derive(Deserialize)]
@@ -21,4 +22,12 @@ pub struct Block {
     pub wpm_to: f32,
     pub duration_ms: u32, // Duration of the whole block in milliseconds
     pub easing: String,   // "linear" or "instant"
+    pub scale: Option<f32>,
+}
+
+impl Block {
+    /// Returns the block's scale if defined, otherwise returns the fallback.
+    pub fn get_scale(&self, fallback: f32) -> f32 {
+        self.scale.unwrap_or(fallback)
+    }
 }

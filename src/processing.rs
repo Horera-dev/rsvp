@@ -37,33 +37,71 @@ pub fn process_blocks(
     config: &Config,
     font: &FontRef,
 ) -> Result<(), Box<dyn Error>> {
+    const PUNCTUATION: [char; 5] = ['.', '!', '?', ';', ','];
+
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
-        let mut block_elapsed_ms = 0.0;
+        let scale_to_use = block.get_scale(config.settings.scale);
 
-        for word in words {
-            // 1. Calculate speed for THIS word
-            let current_wpm = get_current_wpm(block, block_elapsed_ms);
+        // 1. Calculate the total "Time-Weight" of the block.
+        // Instead of just characters, we account for speed (WPM) at each step.
+        let mut total_time_weight: f32 = 0.0;
+        let mut word_weights = Vec::with_capacity(words.len());
 
-            // 2. Convert WPM to Frames
-            // frames = (seconds_per_word) * fps
-            let frames = ((60.0 / current_wpm) * config.settings.fps) as u32;
+        for (i, word) in words.iter().enumerate() {
+            let progress = i as f32 / words.len() as f32;
+            let current_wpm = get_current_wpm(block, progress);
 
-            // 3. Render and Pipe
+            // Weight = Length / Speed.
+            // Punctuation bonus: slightly more weight for sentence ends
+            let punctuation_bonus = if word.ends_with(PUNCTUATION) {
+                1.3
+            } else {
+                1.0
+            };
+
+            // A long word at slow speed has a huge weight.
+            // A short word at high speed has a tiny weight.
+            let weight = (word.len() as f32 * punctuation_bonus) / current_wpm;
+            word_weights.push(weight);
+            total_time_weight += weight;
+        }
+
+        // 2. Determine total frame pool
+        let total_duration_secs = block.duration_ms as f32 / 1000.0;
+        let total_frames = (total_duration_secs * config.settings.fps) as u32;
+
+        let mut cumulative_weight = 0.0;
+        let mut frames_already_piped = 0;
+
+        for (i, word) in words.iter().enumerate() {
+            cumulative_weight += word_weights[i];
+
+            // Instead of rounding word-by-word, we calculate where we SHOULD be
+            // in the total timeline at the end of this word.
+            let target_total_frames =
+                ((cumulative_weight / total_time_weight) * total_frames as f32).round() as u32;
+
+            // The frames for THIS word is the difference
+            let word_frames = target_total_frames - frames_already_piped;
+            frames_already_piped += word_frames;
+
+            if word_frames == 0 {
+                continue;
+            }
+
+            // Render and Pipe
             let frame_data = renderer::draw_word_to_frame(
                 word,
                 config.settings.width,
                 config.settings.height,
-                100.0,
+                scale_to_use,
                 font,
             );
-            for _ in 0..frames {
+
+            for _ in 0..word_frames {
                 stdin.write_all(&frame_data)?;
             }
-
-            // 4. Update elapsed time for the next word
-            let word_duration_ms = (60.0 / current_wpm) * 1000.0;
-            block_elapsed_ms += word_duration_ms;
         }
     }
     Ok(())
