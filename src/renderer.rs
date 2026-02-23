@@ -102,20 +102,30 @@ fn draw_outlined_glyph(
     let width = img.width();
     let height = img.height();
     let bounds = outlined.px_bounds();
-    outlined.draw(|x, y, c| {
-        let px = (x as f32 + bounds.min.x + x_offset) as i32;
-        let py = (y as f32 + bounds.min.y + y_offset) as i32;
+    outlined.draw(|x, y, coverage| {
+        let px = (x as f32 + bounds.min.x + x_offset) as u32;
+        let py = (y as f32 + bounds.min.y + y_offset) as u32;
 
-        if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
-            let val = (c * 255.0) as u8;
+        if px < width && py < height {
+            let background_rgb = img.get_pixel(px, py).0;
+
             // Highlight the ORP in red, others in white
             let pixel = match is_orp {
-                true => Rgb([val, (c * 50.0) as u8, (c * 50.0) as u8]),
-                false => Rgb([val, val, val]),
+                true => alpha_blend([255.0, 50.0, 50.0], background_rgb, coverage),
+                false => alpha_blend([255.0, 255.0, 255.0], background_rgb, coverage),
             };
-            img.put_pixel(px as u32, py as u32, pixel);
+
+            img.put_pixel(px, py, pixel);
         }
     });
+}
+
+fn alpha_blend(color: [f32; 3], background: [u8; 3], coverage: f32) -> Rgb<u8> {
+    // Alpha Blending Formula: Result = (Front * Alpha) + (Background * (1 - Alpha))
+    let r = (color[0] * coverage + background[0] as f32 * (1.0 - coverage)) as u8;
+    let g = (color[1] * coverage + background[1] as f32 * (1.0 - coverage)) as u8;
+    let b = (color[2] * coverage + background[2] as f32 * (1.0 - coverage)) as u8;
+    Rgb([r, g, b])
 }
 
 /**
