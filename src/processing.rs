@@ -2,12 +2,13 @@ use std::{
     error::Error,
     io::Write,
     process::{ChildStdin, Command, Stdio},
+    time::Instant,
 };
 
 use ab_glyph::FontRef;
 use image::RgbImage;
 
-use crate::{config::Config, renderer, rsvp};
+use crate::{config::Config, renderer, rsvp, spiral};
 
 pub fn spawn_ffmpeg_process_gif(
     config: &Config,
@@ -129,6 +130,7 @@ pub fn process_blocks(
     config: &Config,
     font: &FontRef,
 ) -> Result<(), Box<dyn Error>> {
+    let start_time = Instant::now(); // Start the stopwatch
     let active_config = config.settings.active_format();
     let mut frame_count = 0;
     for block in &config.blocks {
@@ -165,15 +167,32 @@ pub fn process_blocks(
 
             // Pipe
             for _ in 0..(frames_to_render as u32) {
+                let frame_start = Instant::now(); // Timer for a single frame
+
                 let mut img = RgbImage::new(active_config.width, active_config.height);
-                renderer::draw_spiral(&mut img, &config.spiral, frame_count, active_config.fps);
+                spiral::draw_spiral_fast(&mut img, &config.spiral, frame_count, active_config.fps);
                 renderer::draw_word(&mut img, cleaned_word, scale_to_use, font);
                 let frame_data = img.into_raw();
                 stdin.write_all(&frame_data)?;
                 frame_count += 1;
+
+                // Optional: Log every 100 frames to see if performance degrades
+                if frame_count % 100 == 0 {
+                    let elapsed = frame_start.elapsed();
+                    println!("Frame {} took: {:?}", frame_count, elapsed);
+                }
             }
         }
     }
+    let total_elapsed = start_time.elapsed();
+    let avg_per_frame = total_elapsed / frame_count;
+
+    println!("--- Performance Report ---");
+    println!("Total Render Time: {:?}", total_elapsed);
+    println!("Total Frames: {}", frame_count);
+    println!("Average Time per Frame: {:?}", avg_per_frame);
+    println!("Effective FPS: {:.2}", 1.0 / avg_per_frame.as_secs_f32());
+    println!("--- End of Performance Report ---");
 
     Ok(())
 }

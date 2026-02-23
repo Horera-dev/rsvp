@@ -20,7 +20,7 @@ pub fn compute_progress(words_len: usize, i: usize) -> f32 {
 pub fn apply_easing(easing: &Easing, from: f32, to: f32, progress: f32) -> f32 {
     match easing {
         Easing::Linear => from + (to - from) * progress,
-        _ => from, // Default to starting speed
+        _ => to, // Default to starting speed
     }
 }
 

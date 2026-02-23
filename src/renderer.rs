@@ -1,6 +1,4 @@
-use std::f32::consts::PI;
-
-use crate::{config::SpiralSettings, rsvp::determine_orp};
+use crate::rsvp::determine_orp;
 use ab_glyph::{Font, FontRef, Glyph, OutlinedGlyph, Point, PxScale, PxScaleFont, ScaleFont};
 use image::{Rgb, RgbImage};
 
@@ -126,49 +124,4 @@ fn alpha_blend(color: [f32; 3], background: [u8; 3], coverage: f32) -> Rgb<u8> {
     let g = (color[1] * coverage + background[1] as f32 * (1.0 - coverage)) as u8;
     let b = (color[2] * coverage + background[2] as f32 * (1.0 - coverage)) as u8;
     Rgb([r, g, b])
-}
-
-/**
-A spiral is defined by the relationship between the angle (θ) and the radius (r).
-
-For a simple Archimedean spiral:
-
-`r=a+bθ`
-
-To rotate it, we simply add an offset to θ based on the current frame number.
-*/
-pub fn draw_spiral(img: &mut RgbImage, config: &SpiralSettings, frame_count: u32, fps: f32) {
-    let width = img.width();
-    let height = img.height();
-    let center_x = width as f32 / 2.0;
-    let center_y = height as f32 / 2.0;
-    let thickness = config.thickness;
-    let curvature = config.curvature;
-    let smoothness = config.smoothness;
-    let lighter_color = config.lighter_color;
-    let darker_color = config.darker_color;
-    let speed = config.speed;
-    let rotation_offset = -(frame_count as f32 / fps) * PI * speed;
-
-    for y in 0..height {
-        for x in 0..width {
-            let dx = x as f32 - center_x;
-            let dy = y as f32 - center_y;
-
-            // Convert Cartesian (x,y) to Polar (r, theta)
-            let r = (dx * dx + dy * dy).sqrt();
-            let theta = dy.atan2(dx) + rotation_offset;
-
-            // The spiral logic: creates "arms" using a sine wave
-            let spiral_value = (theta * thickness + r * curvature).sin();
-
-            // Smoothstep: Creates a soft transition between -0.1 and 0.1
-            // This removes the "staircase" jagged edges.
-            let t = ((spiral_value + smoothness) / smoothness * 2.0).clamp(0.0, 1.0);
-            let smooth_val = t * t * (3.0 - t * 2.0);
-            let color = (lighter_color + smooth_val * darker_color) as u8;
-            let pixel = Rgb([color, color, color]);
-            img.put_pixel(x, y, pixel);
-        }
-    }
 }
