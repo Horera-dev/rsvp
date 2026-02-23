@@ -1,31 +1,24 @@
+use std::f32::consts::PI;
+
 use crate::rsvp::determine_orp;
 use ab_glyph::{Font, FontRef, Glyph, OutlinedGlyph, Point, PxScale, PxScaleFont, ScaleFont};
 use image::{Rgb, RgbImage};
 
-pub fn draw_word_to_frame(
-    word: &str,
-    width: u32,
-    height: u32,
-    scale: f32,
-    font: &FontRef,
-) -> Vec<u8> {
+pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     // --- Prepare font settings ---
-    let mut img = RgbImage::new(width, height);
     let px_scale = PxScale::from(scale);
     let scaled_font = font.as_scaled(px_scale);
     let chars: Vec<char> = word.chars().collect();
-    let orp_index = determine_orp(&chars);
+    let orp_index = determine_orp(chars.len());
 
     // --- Position glyphs relative to (0,0) ---
     let (glyphs, orp_center_x) = layout_word(word, orp_index, px_scale, &scaled_font);
 
     // --- Calculate where to place the word on the screen---
-    let (x_offset, y_offset) = calculate_alignment(&mut img, orp_center_x, &scaled_font);
+    let (x_offset, y_offset) = calculate_alignment(img, orp_center_x, &scaled_font);
 
     // --- Draw the glyphs onto the image buffer ---
-    render_glyphs_to_image(&mut img, glyphs, orp_index, x_offset, y_offset, font);
-
-    img.into_raw()
+    render_glyphs_to_image(img, glyphs, orp_index, x_offset, y_offset, font);
 }
 
 /// Handles horizontal positioning and kerning
@@ -90,11 +83,10 @@ fn render_glyphs_to_image(
     y_offset: f32,
     font: &FontRef,
 ) {
-    let (width, height) = img.dimensions();
     for (i, glyph) in glyphs.into_iter().enumerate() {
         if let Some(outlined) = font.outline_glyph(glyph) {
             let is_orp = i == orp_index;
-            draw_outlined_glyph(img, outlined, x_offset, y_offset, width, height, is_orp);
+            draw_outlined_glyph(img, outlined, x_offset, y_offset, is_orp);
         }
     }
 }
@@ -105,10 +97,10 @@ fn draw_outlined_glyph(
     outlined: OutlinedGlyph,
     x_offset: f32,
     y_offset: f32,
-    width: u32,
-    height: u32,
     is_orp: bool,
 ) {
+    let width = img.width();
+    let height = img.height();
     let bounds = outlined.px_bounds();
     outlined.draw(|x, y, c| {
         let px = (x as f32 + bounds.min.x + x_offset) as i32;
@@ -117,12 +109,53 @@ fn draw_outlined_glyph(
         if px >= 0 && px < width as i32 && py >= 0 && py < height as i32 {
             let val = (c * 255.0) as u8;
             // Highlight the ORP in red, others in white
-            let pixel = if is_orp {
-                Rgb([val, (c * 50.0) as u8, (c * 50.0) as u8])
-            } else {
-                Rgb([val, val, val])
+            let pixel = match is_orp {
+                true => Rgb([val, (c * 50.0) as u8, (c * 50.0) as u8]),
+                false => Rgb([val, val, val]),
             };
             img.put_pixel(px as u32, py as u32, pixel);
         }
     });
+}
+
+/**
+A spiral is defined by the relationship between the angle (θ) and the radius (r).
+
+For a simple Archimedean spiral:
+
+`r=a+bθ`
+
+To rotate it, we simply add an offset to θ based on the current frame number.
+*/
+pub fn draw_spiral(img: &mut RgbImage, frame_count: u32, fps: f32) {
+    let width = img.width();
+    let height = img.height();
+    let center_x = width as f32 / 2.0;
+    let center_y = height as f32 / 2.0;
+    let thickness = 3.0;
+    let tightness = 0.05;
+    let rotation_offset = (frame_count as f32 / fps) * PI * -4.0;
+
+    for y in 0..height {
+        for x in 0..width {
+            let dx = x as f32 - center_x;
+            let dy = y as f32 - center_y;
+
+            // Convert Cartesian (x,y) to Polar (r, theta)
+            let r = (dx * dx + dy * dy).sqrt();
+            let theta = dy.atan2(dx) + rotation_offset;
+
+            // The spiral logic: creates "arms" using a sine wave
+            // Adjust '10.0' for thickness and '0.1' for spiral tightness
+            let spiral_value = (theta * thickness + r * tightness).sin();
+
+            let pixel = if spiral_value > 0.0 {
+                Rgb([20, 20, 20]) // Dark arm
+            } else {
+                Rgb([40, 40, 40]) // Lighter arm
+            };
+
+            img.put_pixel(x, y, pixel);
+        }
+    }
 }

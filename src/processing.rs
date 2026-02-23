@@ -5,12 +5,9 @@ use std::{
 };
 
 use ab_glyph::FontRef;
+use image::RgbImage;
 
-use crate::{
-    config::Config,
-    renderer,
-    rsvp::{apply_easing_wpm, apply_punctuation, clean_word, compute_progress},
-};
+use crate::{config::Config, renderer, rsvp};
 
 pub fn spawn_ffmpeg_process_gif(
     config: &Config,
@@ -133,22 +130,25 @@ pub fn process_blocks(
     font: &FontRef,
 ) -> Result<(), Box<dyn Error>> {
     let active_config = config.settings.active_format();
+    let mut frame_count = 0;
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
         let scale_to_use = block.get_scale(active_config.scale);
+        let easing_to_use = block.get_easing(active_config.easing.clone());
 
         // We use a float to track fractional frames to prevent "micro-stutters"
         let mut fractional_frames_buffer: f32 = 0.0;
 
         for (i, word) in words.iter().enumerate() {
             // Compute the speed for this specific word
-            let progress = compute_progress(words.len(), i);
-            let current_wpm = apply_easing_wpm(block, progress);
+            let progress = rsvp::compute_progress(words.len(), i);
+            let current_wpm =
+                rsvp::apply_easing(&easing_to_use, block.wpm_from, block.wpm_to, progress);
 
             // Convert WPM to Frames
             // Calculation: (60 sec / WPM) * FPS * bonus
             let word_duration_base = (active_config.fps / current_wpm) * active_config.fps;
-            let word_duration_weighted = word_duration_base * apply_punctuation(word);
+            let word_duration_weighted = word_duration_base * rsvp::apply_punctuation(word);
 
             // Handle frame distribution
             // We add the fractional remainder from the last word to the current word
@@ -161,18 +161,16 @@ pub fn process_blocks(
             }
 
             // Render
-            let cleaned_word = clean_word(word);
-            let frame_data = renderer::draw_word_to_frame(
-                cleaned_word,
-                active_config.width,
-                active_config.height,
-                scale_to_use,
-                font,
-            );
+            let cleaned_word = rsvp::clean_word(word);
 
             // Pipe
             for _ in 0..(frames_to_render as u32) {
+                let mut img = RgbImage::new(active_config.width, active_config.height);
+                renderer::draw_spiral(&mut img, frame_count, active_config.fps);
+                renderer::draw_word(&mut img, cleaned_word, scale_to_use, font);
+                let frame_data = img.into_raw();
                 stdin.write_all(&frame_data)?;
+                frame_count += 1;
             }
         }
     }

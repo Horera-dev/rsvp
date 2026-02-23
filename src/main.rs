@@ -8,6 +8,7 @@ use std::{error::Error, process::ChildStdin};
 
 use ab_glyph::FontRef;
 use anyhow::Context;
+use image::RgbImage;
 
 use crate::{
     io::{load_config, load_font_data},
@@ -18,8 +19,8 @@ fn draw_basic() {
     // Load Font (Include bytes at compile time for simplicity)
     let font_data = include_bytes!("../assets/Roboto-Black.ttf");
     let font = FontRef::try_from_slice(font_data).expect("Error loading font");
-    let frame_bytes = renderer::draw_word_to_frame("Rust", 1920, 1280, 100.0, &font);
-    let img = image::RgbImage::from_raw(1920, 1280, frame_bytes).unwrap();
+    let mut img = RgbImage::new(1920, 1280);
+    renderer::draw_word(&mut img, "Rust", 100.0, &font);
     img.save("test_frame.png").unwrap();
 }
 
