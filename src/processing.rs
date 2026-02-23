@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     io::Write,
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{ChildStdin, Command, Stdio},
 };
 
 use ab_glyph::FontRef;
@@ -12,8 +12,88 @@ use crate::{
     rsvp::{apply_easing_wpm, apply_punctuation, clean_word, compute_progress},
 };
 
-pub fn spawn_ffmpeg_process(config: &Config) -> Result<std::process::Child, std::io::Error> {
+pub fn spawn_ffmpeg_process_gif(
+    config: &Config,
+    render_logic: impl FnOnce(&mut ChildStdin) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    // 1. First Pass: Save raw data to a temporary high-quality mkv (lossless)
+    // This is much faster than encoding a GIF directly.
+    let mut child = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "rgb24",
+            "-video_size",
+            &format!("{}x{}", config.settings.width, config.settings.height),
+            "-framerate",
+            &config.settings.fps.to_string(),
+            "-i",
+            "-",
+            "-c:v",
+            "libx264",
+            "-crf",
+            "0",
+            "-preset",
+            "ultrafast",
+            "temp_buffer.mkv",
+        ])
+        .stdin(Stdio::piped())
+        .spawn()?;
+
+    let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
+    render_logic(&mut stdin)?; // Run your word-loop here
+    drop(stdin);
+    child.wait()?;
+
+    // 2. Second Pass: Generate Palette from the intermediate file
     Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-i",
+            "temp_buffer.mkv",
+            "-vf",
+            "palettegen=max_colors=128:stats_mode=diff",
+            "-frames:v",
+            "1", // Tell FFmpeg we only want ONE frame for the palette
+            "-update",
+            "1", // Tell the image2 muxer to treat it as a single file
+            "palette.png",
+        ])
+        .status()?;
+
+    // 3. Third Pass: Use Palette to create final GIF
+    Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-i",
+            "temp_buffer.mkv",
+            "-video_size",
+            &format!("{}x{}", config.settings.width, config.settings.height),
+            "-framerate",
+            &config.settings.fps.to_string(),
+            "-i",
+            "palette.png",
+            "-filter_complex",
+            "paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+            "output.gif",
+        ])
+        .status()?;
+
+    // Cleanup
+    let _ = std::fs::remove_file("temp_buffer.mkv");
+    let _ = std::fs::remove_file("palette.png");
+
+    println!("Video generated successfully.");
+    Ok(())
+}
+
+pub fn spawn_ffmpeg_process_video(
+    config: &Config,
+    render_logic: impl FnOnce(&mut ChildStdin) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    let mut child = Command::new("ffmpeg")
         .args([
             "-y",
             "-f",
@@ -33,7 +113,16 @@ pub fn spawn_ffmpeg_process(config: &Config) -> Result<std::process::Child, std:
             "output.mp4",
         ])
         .stdin(Stdio::piped())
-        .spawn()
+        .spawn()?;
+
+    let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
+    render_logic(&mut stdin)?; // Run your word-loop here
+
+    drop(stdin);
+    child.wait()?;
+
+    println!("Video generated successfully.");
+    Ok(())
 }
 
 pub fn process_blocks(
@@ -85,24 +174,5 @@ pub fn process_blocks(
         }
     }
 
-    Ok(())
-}
-
-pub fn handle_completion(
-    child: &mut Child,
-    stdin: ChildStdin,
-    render_result: Result<(), Box<dyn std::error::Error>>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Cleanup: Close stdin and wait for the process to finish
-    drop(stdin);
-    let status = child.wait()?;
-
-    if !status.success() {
-        eprintln!("FFmpeg exited with an error status: {}", status);
-    }
-
-    render_result?; // Propagate any pipe errors
-
-    println!("Video generated successfully.");
     Ok(())
 }

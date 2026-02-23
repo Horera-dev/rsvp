@@ -1,9 +1,10 @@
 [settings]
-width = 1920
-height = 1080
-fps = 60.0
+width = 480
+height = 320
+fps = 50.0
 font_path = "assets/Roboto-Black.ttf"
-scale = 100.0
+scale = 60.0
+renderer = 'gif'
 
 [[blocks]]
 text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In volutpat eros id nisi dictum porttitor. Proin tristique a magna non egestas. Maecenas laoreet erat eu leo ultrices, quis laoreet ante sodales. Sed dapibus massa vel erat commodo ultrices. Nam ut metus venenatis, aliquam velit convallis, auctor sapien. Morbi et enim at purus ornare consequat vel sit amet sem. Suspendisse pretium justo vitae massa rutrum elementum. Sed nec tellus eget eros maximus ultricies. Phasellus aliquam at purus ac malesuada."
@@ -16,7 +17,6 @@ text = "Mauris ac ligula tristique, auctor sem quis, tincidunt metus. Sed imperd
 wpm_from = 200.0
 wpm_to = 600.0
 easing = "linear"
-scale = 150.0
 
 
 [[blocks]]
@@ -24,4 +24,3 @@ text = "Cras vestibulum vestibulum nulla ut interdum. Nunc fringilla odio eu con
 wpm_from = 600.0
 wpm_to = 600.0
 easing = "linear"
-scale = 60.0

@@ -6,8 +6,16 @@ pub struct Config {
     pub blocks: Vec<Block>,
 }
 
+#[derive(Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum RenderMode {
+    Gif,
+    Video,
+}
+
 #[derive(Deserialize)]
 pub struct GlobalSettings {
+    pub renderer: RenderMode,
     pub width: u32,
     pub height: u32,
     pub fps: f32,

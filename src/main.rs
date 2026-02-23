@@ -4,12 +4,14 @@ mod processing;
 mod renderer;
 mod rsvp;
 
+use std::{error::Error, process::ChildStdin};
+
 use ab_glyph::FontRef;
 use anyhow::Context;
 
 use crate::{
     io::{load_config, load_font_data},
-    processing::{handle_completion, process_blocks, spawn_ffmpeg_process},
+    processing::{process_blocks, spawn_ffmpeg_process_gif, spawn_ffmpeg_process_video},
 };
 
 fn draw_basic() {
@@ -21,7 +23,7 @@ fn draw_basic() {
     img.save("test_frame.png").unwrap();
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     // Test
     draw_basic();
 
@@ -29,8 +31,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let font_data = load_font_data(&config)?;
     let font: FontRef = FontRef::try_from_slice(&font_data)
         .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
-    let mut child = spawn_ffmpeg_process(&config)?;
-    let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-    let render_result = process_blocks(&mut stdin, &config, &font);
-    handle_completion(&mut child, stdin, render_result)
+
+    // Create a closure for the rendering logic so we don't repeat ourselves
+    let render_logic = |stdin: &mut ChildStdin| process_blocks(stdin, &config, &font);
+
+    match config.settings.renderer {
+        config::RenderMode::Gif => spawn_ffmpeg_process_gif(&config, render_logic)?,
+        config::RenderMode::Video => spawn_ffmpeg_process_video(&config, render_logic)?,
+    }
+
+    println!("✨ Done!");
+    Ok(())
 }
