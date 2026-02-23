@@ -1,10 +1,18 @@
 [settings]
+font_path = "assets/Roboto-Black.ttf"
+renderer = 'video'
+
+[settings.video]
+width = 1920
+height = 1280
+fps = 50.0
+scale = 100.0
+
+[settings.gif]
 width = 480
 height = 320
 fps = 50.0
-font_path = "assets/Roboto-Black.ttf"
 scale = 60.0
-renderer = 'gif'
 
 [[blocks]]
 text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In volutpat eros id nisi dictum porttitor. Proin tristique a magna non egestas. Maecenas laoreet erat eu leo ultrices, quis laoreet ante sodales. Sed dapibus massa vel erat commodo ultrices. Nam ut metus venenatis, aliquam velit convallis, auctor sapien. Morbi et enim at purus ornare consequat vel sit amet sem. Suspendisse pretium justo vitae massa rutrum elementum. Sed nec tellus eget eros maximus ultricies. Phasellus aliquam at purus ac malesuada."

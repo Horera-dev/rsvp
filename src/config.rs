@@ -16,10 +16,16 @@ pub enum RenderMode {
 #[derive(Deserialize)]
 pub struct GlobalSettings {
     pub renderer: RenderMode,
+    pub font_path: String,
+    pub video: FormatSettings, // [settings.video]
+    pub gif: FormatSettings,   // [settings.gif]
+}
+
+#[derive(Deserialize)]
+pub struct FormatSettings {
     pub width: u32,
     pub height: u32,
     pub fps: f32,
-    pub font_path: String,
     pub scale: f32,
 }
 
@@ -36,5 +42,14 @@ impl Block {
     /// Returns the block's scale if defined, otherwise returns the fallback.
     pub fn get_scale(&self, fallback: f32) -> f32 {
         self.scale.unwrap_or(fallback)
+    }
+}
+
+impl GlobalSettings {
+    pub fn active_format(&self) -> &FormatSettings {
+        match self.renderer {
+            RenderMode::Gif => &self.gif,
+            RenderMode::Video => &self.video,
+        }
     }
 }

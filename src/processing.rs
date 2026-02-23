@@ -18,6 +18,7 @@ pub fn spawn_ffmpeg_process_gif(
 ) -> Result<(), Box<dyn Error>> {
     // 1. First Pass: Save raw data to a temporary high-quality mkv (lossless)
     // This is much faster than encoding a GIF directly.
+    let active_config = config.settings.active_format();
     let mut child = Command::new("ffmpeg")
         .args([
             "-y",
@@ -26,9 +27,9 @@ pub fn spawn_ffmpeg_process_gif(
             "-pixel_format",
             "rgb24",
             "-video_size",
-            &format!("{}x{}", config.settings.width, config.settings.height),
+            &format!("{}x{}", active_config.width, active_config.height),
             "-framerate",
-            &config.settings.fps.to_string(),
+            &active_config.fps.to_string(),
             "-i",
             "-",
             "-c:v",
@@ -70,9 +71,9 @@ pub fn spawn_ffmpeg_process_gif(
             "-i",
             "temp_buffer.mkv",
             "-video_size",
-            &format!("{}x{}", config.settings.width, config.settings.height),
+            &format!("{}x{}", active_config.width, active_config.height),
             "-framerate",
-            &config.settings.fps.to_string(),
+            &active_config.fps.to_string(),
             "-i",
             "palette.png",
             "-filter_complex",
@@ -93,6 +94,7 @@ pub fn spawn_ffmpeg_process_video(
     config: &Config,
     render_logic: impl FnOnce(&mut ChildStdin) -> Result<(), Box<dyn Error>>,
 ) -> Result<(), Box<dyn Error>> {
+    let active_config = config.settings.active_format();
     let mut child = Command::new("ffmpeg")
         .args([
             "-y",
@@ -101,9 +103,9 @@ pub fn spawn_ffmpeg_process_video(
             "-pixel_format",
             "rgb24",
             "-video_size",
-            &format!("{}x{}", config.settings.width, config.settings.height),
+            &format!("{}x{}", active_config.width, active_config.height),
             "-framerate",
-            &config.settings.fps.to_string(),
+            &active_config.fps.to_string(),
             "-i",
             "-",
             "-c:v",
@@ -130,9 +132,10 @@ pub fn process_blocks(
     config: &Config,
     font: &FontRef,
 ) -> Result<(), Box<dyn Error>> {
+    let active_config = config.settings.active_format();
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
-        let scale_to_use = block.get_scale(config.settings.scale);
+        let scale_to_use = block.get_scale(active_config.scale);
 
         // We use a float to track fractional frames to prevent "micro-stutters"
         let mut fractional_frames_buffer: f32 = 0.0;
@@ -144,7 +147,7 @@ pub fn process_blocks(
 
             // Convert WPM to Frames
             // Calculation: (60 sec / WPM) * FPS * bonus
-            let word_duration_base = (config.settings.fps / current_wpm) * config.settings.fps;
+            let word_duration_base = (active_config.fps / current_wpm) * active_config.fps;
             let word_duration_weighted = word_duration_base * apply_punctuation(word);
 
             // Handle frame distribution
@@ -161,8 +164,8 @@ pub fn process_blocks(
             let cleaned_word = clean_word(word);
             let frame_data = renderer::draw_word_to_frame(
                 cleaned_word,
-                config.settings.width,
-                config.settings.height,
+                active_config.width,
+                active_config.height,
                 scale_to_use,
                 font,
             );
