@@ -3,6 +3,8 @@ mod io;
 mod processing;
 mod renderer;
 mod rsvp;
+mod spiral;
+mod tests;
 
 use std::{error::Error, process::ChildStdin};
 

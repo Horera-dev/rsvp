@@ -830,6 +830,7 @@ dependencies = [
  "ab_glyph",
  "anyhow",
  "image",
+ "rayon",
  "serde",
  "toml",
 ]
