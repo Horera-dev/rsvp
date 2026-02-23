@@ -51,10 +51,18 @@ pub struct SpiralSettings {
 #[derive(Deserialize)]
 pub struct Block {
     pub text: String,
+
+    #[serde(default = "default_float")]
     pub wpm_from: f32,
+
+    #[serde(default = "default_float")]
     pub wpm_to: f32,
     pub easing: Option<Easing>,
     pub scale: Option<f32>,
+}
+
+fn default_float() -> f32 {
+    0.0
 }
 
 impl Block {
