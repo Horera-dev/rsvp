@@ -6,9 +6,14 @@ use std::{
 };
 
 use ab_glyph::FontRef;
+use anyhow::Context;
 use image::RgbImage;
 
-use crate::{config::Config, renderer, rsvp, spiral};
+use crate::{
+    config::Config,
+    io, renderer, rsvp,
+    spiral::{self, create_spiral_cache},
+};
 
 pub fn spawn_ffmpeg_process_gif(
     config: &Config,
@@ -125,18 +130,19 @@ pub fn spawn_ffmpeg_process_video(
     Ok(())
 }
 
-pub fn process_blocks(
-    stdin: &mut ChildStdin,
-    config: &Config,
-    font: &FontRef,
-) -> Result<(), Box<dyn Error>> {
+pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box<dyn Error>> {
+    let font_data = io::load_font_data(config)?;
+    let font: FontRef = FontRef::try_from_slice(&font_data)
+        .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
     let start_time = Instant::now(); // Start the stopwatch
     let active_config = config.settings.active_format();
+    let fps = active_config.fps;
+    let spiral_cache = create_spiral_cache(active_config.width, active_config.height);
     let mut frame_count = 0;
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
-        let scale_to_use = block.get_scale(active_config.scale);
-        let easing_to_use = block.get_easing(active_config.easing.clone());
+        let scale = block.get_scale(active_config.scale);
+        let easing = block.get_easing(active_config.easing.clone());
 
         // We use a float to track fractional frames to prevent "micro-stutters"
         let mut fractional_frames_buffer: f32 = 0.0;
@@ -144,8 +150,7 @@ pub fn process_blocks(
         for (i, word) in words.iter().enumerate() {
             // Compute the speed for this specific word
             let progress = rsvp::compute_progress(words.len(), i);
-            let current_wpm =
-                rsvp::apply_easing(&easing_to_use, block.wpm_from, block.wpm_to, progress);
+            let current_wpm = rsvp::apply_easing(&easing, block.wpm_from, block.wpm_to, progress);
 
             // Convert WPM to Frames
             // Calculation: (60 sec / WPM) * FPS * bonus
@@ -170,8 +175,14 @@ pub fn process_blocks(
                 let frame_start = Instant::now(); // Timer for a single frame
 
                 let mut img = RgbImage::new(active_config.width, active_config.height);
-                spiral::draw_spiral_fast(&mut img, &config.spiral, frame_count, active_config.fps);
-                renderer::draw_word(&mut img, cleaned_word, scale_to_use, font);
+                spiral::draw_spiral_fast_with_cache(
+                    &mut img,
+                    &config.spiral,
+                    frame_count,
+                    fps,
+                    &spiral_cache,
+                );
+                renderer::draw_word(&mut img, cleaned_word, scale, &font);
                 let frame_data = img.into_raw();
                 stdin.write_all(&frame_data)?;
                 frame_count += 1;
