@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub struct Config {
     pub settings: GlobalSettings,
     pub blocks: Vec<Block>,
+    pub spiral: SpiralSettings,
 }
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -35,6 +36,16 @@ pub struct FormatSettings {
     pub fps: f32,
     pub scale: f32,
     pub easing: Easing,
+}
+
+#[derive(Deserialize)]
+pub struct SpiralSettings {
+    pub thickness: f32,
+    pub curvature: f32,
+    pub smoothness: f32,
+    pub lighter_color: f32,
+    pub darker_color: f32,
+    pub speed: f32,
 }
 
 #[derive(Deserialize)]

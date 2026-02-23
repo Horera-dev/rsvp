@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::rsvp::determine_orp;
+use crate::{config::SpiralSettings, rsvp::determine_orp};
 use ab_glyph::{Font, FontRef, Glyph, OutlinedGlyph, Point, PxScale, PxScaleFont, ScaleFont};
 use image::{Rgb, RgbImage};
 
@@ -127,14 +127,18 @@ For a simple Archimedean spiral:
 
 To rotate it, we simply add an offset to θ based on the current frame number.
 */
-pub fn draw_spiral(img: &mut RgbImage, frame_count: u32, fps: f32) {
+pub fn draw_spiral(img: &mut RgbImage, config: &SpiralSettings, frame_count: u32, fps: f32) {
     let width = img.width();
     let height = img.height();
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
-    let thickness = 3.0;
-    let tightness = 0.05;
-    let rotation_offset = (frame_count as f32 / fps) * PI * -4.0;
+    let thickness = config.thickness;
+    let curvature = config.curvature;
+    let smoothness = config.smoothness;
+    let lighter_color = config.lighter_color;
+    let darker_color = config.darker_color;
+    let speed = config.speed;
+    let rotation_offset = -(frame_count as f32 / fps) * PI * speed;
 
     for y in 0..height {
         for x in 0..width {
@@ -146,15 +150,14 @@ pub fn draw_spiral(img: &mut RgbImage, frame_count: u32, fps: f32) {
             let theta = dy.atan2(dx) + rotation_offset;
 
             // The spiral logic: creates "arms" using a sine wave
-            // Adjust '10.0' for thickness and '0.1' for spiral tightness
-            let spiral_value = (theta * thickness + r * tightness).sin();
+            let spiral_value = (theta * thickness + r * curvature).sin();
 
-            let pixel = if spiral_value > 0.0 {
-                Rgb([20, 20, 20]) // Dark arm
-            } else {
-                Rgb([40, 40, 40]) // Lighter arm
-            };
-
+            // Smoothstep: Creates a soft transition between -0.1 and 0.1
+            // This removes the "staircase" jagged edges.
+            let t = ((spiral_value + smoothness) / smoothness * 2.0).clamp(0.0, 1.0);
+            let smooth_val = t * t * (3.0 - t * 2.0);
+            let color = (lighter_color + smooth_val * darker_color) as u8;
+            let pixel = Rgb([color, color, color]);
             img.put_pixel(x, y, pixel);
         }
     }

@@ -166,7 +166,7 @@ pub fn process_blocks(
             // Pipe
             for _ in 0..(frames_to_render as u32) {
                 let mut img = RgbImage::new(active_config.width, active_config.height);
-                renderer::draw_spiral(&mut img, frame_count, active_config.fps);
+                renderer::draw_spiral(&mut img, &config.spiral, frame_count, active_config.fps);
                 renderer::draw_word(&mut img, cleaned_word, scale_to_use, font);
                 let frame_data = img.into_raw();
                 stdin.write_all(&frame_data)?;

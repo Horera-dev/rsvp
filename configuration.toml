@@ -16,10 +16,23 @@ fps = 50.0
 scale = 60.0
 easing = "linear"
 
+[spiral]
+thickness = 3.0
+curvature = 0.13
+smoothness = 0.2
+lighter_color = 20.0
+darker_color = 40.0
+speed = 1.0
+
 [[blocks]]
-text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In volutpat eros id nisi dictum porttitor. Proin tristique a magna non egestas. Maecenas laoreet erat eu leo ultrices, quis laoreet ante sodales. Sed dapibus massa vel erat commodo ultrices. Nam ut metus venenatis, aliquam velit convallis, auctor sapien. Morbi et enim at purus ornare consequat vel sit amet sem. Suspendisse pretium justo vitae massa rutrum elementum. Sed nec tellus eget eros maximus ultricies. Phasellus aliquam at purus ac malesuada."
+text = "This is a simple test"
 wpm_from = 400.0
 wpm_to = 400.0
+
+# [[blocks]]
+# text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In volutpat eros id nisi dictum porttitor. Proin tristique a magna non egestas. Maecenas laoreet erat eu leo ultrices, quis laoreet ante sodales. Sed dapibus massa vel erat commodo ultrices. Nam ut metus venenatis, aliquam velit convallis, auctor sapien. Morbi et enim at purus ornare consequat vel sit amet sem. Suspendisse pretium justo vitae massa rutrum elementum. Sed nec tellus eget eros maximus ultricies. Phasellus aliquam at purus ac malesuada."
+# wpm_from = 200.0
+# wpm_to = 200.0
 
 # [[blocks]]
 # text = "Mauris ac ligula tristique, auctor sem quis, tincidunt metus. Sed imperdiet ut erat in porttitor. Donec malesuada erat at felis suscipit tincidunt. Quisque a varius sapien, et elementum eros. Donec maximus egestas sapien nec vulputate. Donec congue blandit risus fermentum rutrum. Pellentesque consequat metus vitae mauris condimentum, in viverra mi volutpat. Proin nec sapien vulputate metus dignissim ultricies."
