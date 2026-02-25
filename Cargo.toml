@@ -10,3 +10,4 @@ rayon = "1.9"
 image = "0.25.9"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.0.2"
+rand = "0.8"

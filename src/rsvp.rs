@@ -1,4 +1,6 @@
-use crate::config::Easing;
+use rand::Rng;
+
+use crate::{config::Easing, constant::MASK_CHARSET};
 
 pub fn determine_orp(words_len: usize) -> usize {
     match words_len {
@@ -33,4 +35,12 @@ pub fn apply_punctuation(word: &str) -> f32 {
 }
 pub fn clean_word(word: &str) -> &str {
     word.trim_matches(|c: char| !c.is_alphanumeric())
+}
+
+pub fn generate_random_mask(len: usize) -> String {
+    let mut rng = rand::thread_rng();
+
+    (0..len)
+        .map(|_| MASK_CHARSET[rng.gen_range(0..MASK_CHARSET.len())] as char)
+        .collect()
 }

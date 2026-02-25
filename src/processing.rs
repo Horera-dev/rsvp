@@ -11,7 +11,8 @@ use image::RgbImage;
 
 use crate::{
     config::Config,
-    io, renderer, rsvp,
+    io, renderer,
+    rsvp::{self, generate_random_mask},
     spiral::{self, create_spiral_cache},
 };
 
@@ -171,7 +172,9 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
             let cleaned_word = rsvp::clean_word(word);
 
             // Pipe
-            for _ in 0..(frames_to_render as u32) {
+
+            let word_frames = frames_to_render as u32 - config.settings.masking_frames;
+            for _ in 0..word_frames {
                 let frame_start = Instant::now(); // Timer for a single frame
 
                 let mut img = RgbImage::new(active_config.width, active_config.height);
@@ -192,6 +195,23 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
                     let elapsed = frame_start.elapsed();
                     println!("Frame {} took: {:?}", frame_count, elapsed);
                 }
+            }
+
+            for _ in 0..config.settings.masking_frames {
+                let mut img = RgbImage::new(active_config.width, active_config.height);
+                spiral::draw_spiral_fast_with_cache(
+                    &mut img,
+                    &config.spiral,
+                    frame_count,
+                    fps,
+                    &spiral_cache,
+                );
+                let mask = generate_random_mask(word.len());
+                renderer::draw_word(&mut img, &mask, scale, &font);
+                let frame_data = img.into_raw();
+                stdin.write_all(&frame_data)?;
+                frame_count += 1;
+                // println!("{}", frame_count);
             }
         }
     }
