@@ -1,3 +1,4 @@
+use crate::constant;
 use crate::rsvp::determine_orp;
 use ab_glyph::{Font, FontRef, Glyph, OutlinedGlyph, Point, PxScale, PxScaleFont, ScaleFont};
 use image::{Rgb, RgbImage};
@@ -109,8 +110,9 @@ fn draw_outlined_glyph(
 
             // Highlight the ORP in red, others in white
             let pixel = match is_orp {
-                true => alpha_blend([255.0, 50.0, 50.0], background_rgb, coverage),
-                false => alpha_blend([255.0, 255.0, 255.0], background_rgb, coverage),
+                // true => alpha_blend([255.0, 50.0, 50.0], background_rgb, coverage),
+                true => alpha_blend(constant::ORP, background_rgb, coverage),
+                false => alpha_blend(constant::WHITE, background_rgb, coverage),
             };
 
             img.put_pixel(px, py, pixel);

@@ -35,6 +35,7 @@ pub fn draw_spiral_fast_with_cache(
     cache: &SpiralCache,
 ) {
     let rotation_offset = -(frame as f32 / fps) * PI * config.speed;
+    let dist_to_edge = img.height() as f32 / 2.0;
 
     img.as_flat_samples_mut()
         .samples
@@ -43,7 +44,7 @@ pub fn draw_spiral_fast_with_cache(
         .zip(&cache.angles)
         .for_each(|((pixel, &r), &theta_base)| {
             let theta = theta_base + rotation_offset;
-            let color = get_spiral_color(theta, r, config);
+            let color = get_fading_spiral_color(theta, r, dist_to_edge, config);
             pixel[0] = color;
             pixel[1] = color;
             pixel[2] = color;
@@ -111,4 +112,29 @@ fn get_spiral_color(theta: f32, r: f32, config: &SpiralSettings) -> u8 {
     // 4. Calculate 'color' (The Lerp)
     // Formula: start + smooth_val * (end - start)
     (config.lighter_color + smooth_val * (config.darker_color - config.lighter_color)) as u8
+}
+
+fn get_fading_spiral_color(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettings) -> u8 {
+    // 1. The Spiral Math (cos based)
+    // Shader uses: cos(0.25 * dist + angle + rotation)
+    let spiral_value = (0.25 * r + theta).cos();
+
+    // 2. The Fade Math
+    // percentDistToEdge = clamp(dist / distToEdge, 0.0, 1.0)
+    let percent_dist_to_edge = (r / dist_to_edge).clamp(0.0, 1.0);
+
+    // col = mix(0.0, col, 1.0 - percentDistToEdge)
+    // This multiplier is 1.0 at center, 0.0 at distToEdge
+    let fade_factor = 1.0 - percent_dist_to_edge;
+
+    // 3. Apply Smoothstep and Fade to the color range
+    let t = ((spiral_value + config.smoothness) / (config.smoothness * 2.0)).clamp(0.0, 1.0);
+    let smooth_val = t * t * (3.0 - 2.0 * t);
+
+    // Base intensity blended with the fade factor
+    let intensity = smooth_val * fade_factor;
+
+    let color = config.lighter_color + intensity * (config.darker_color - config.lighter_color);
+
+    color as u8
 }
