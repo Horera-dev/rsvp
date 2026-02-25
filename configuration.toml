@@ -18,12 +18,13 @@ scale = 60.0
 easing = "linear"
 
 [spiral]
-thickness = 3.0
-curvature = 0.13
+thickness = 6.0
+curvature = 0.18
 smoothness = 0.2
 lighter_color = 0.0
 darker_color = 40.0
-speed = 1.0
+speed = 0.25
+shrink_height = 2.0
 
 # [[blocks]]
 # text = "This is a simple test"

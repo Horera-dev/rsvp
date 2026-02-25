@@ -29,7 +29,7 @@ pub fn apply_easing(easing: &Easing, from: f32, to: f32, progress: f32) -> f32 {
 const PUNCTUATION: [char; 5] = ['.', '!', '?', ';', ','];
 pub fn apply_punctuation(word: &str) -> f32 {
     match word.ends_with(PUNCTUATION) {
-        true => 1.5,
+        true => 2.0,
         false => 1.0,
     }
 }
