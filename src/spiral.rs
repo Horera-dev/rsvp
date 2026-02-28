@@ -34,8 +34,8 @@ pub fn draw_spiral_fast_with_cache(
     fps: f32,
     cache: &SpiralCache,
 ) {
-    let rotation_offset = -(frame as f32 / fps) * PI * config.speed;
-    let dist_to_edge = img.height() as f32 / config.shrink_height;
+    let rotation_offset = -((frame as f32 * PI * config.speed) / (fps * config.branches));
+    let dist_to_edge = img.height().min(img.width()) as f32 / config.shrink_height;
 
     img.as_flat_samples_mut()
         .samples
@@ -99,7 +99,7 @@ pub fn draw_spiral(img: &mut RgbImage, config: &SpiralSettings, frame: u32, fps:
 
 fn get_spiral_color(theta: f32, r: f32, config: &SpiralSettings) -> u8 {
     // 1. Calculate 'spiral_value' (Pixel in the spiral)
-    let spiral_value = (theta * config.thickness + r * config.curvature).sin();
+    let spiral_value = (theta * config.branches + r * config.curvature).sin();
 
     // 2. Calculate 't' (Normalization)
     // Added parentheses around (smoothness * 2.0) so you don't divide by smoothness then multiply by 2.
@@ -117,7 +117,7 @@ fn get_spiral_color(theta: f32, r: f32, config: &SpiralSettings) -> u8 {
 fn get_fading_spiral_color(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettings) -> u8 {
     // 1. The Spiral Math (cos based)
     // Shader uses: cos(0.25 * dist + angle + rotation)
-    let spiral_value = (config.curvature * r + theta * config.thickness).cos();
+    let spiral_value = (config.curvature * r + theta * config.branches).cos();
 
     // 2. The Fade Math
     // percentDistToEdge = clamp(dist / distToEdge, 0.0, 1.0)

@@ -41,7 +41,7 @@ pub struct FormatSettings {
 
 #[derive(Deserialize)]
 pub struct SpiralSettings {
-    pub thickness: f32,
+    pub branches: f32,
     pub curvature: f32,
     pub smoothness: f32,
     pub lighter_color: f32,

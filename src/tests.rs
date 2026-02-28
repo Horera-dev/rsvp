@@ -20,20 +20,20 @@ fn draw_basic() -> Result<(), Box<dyn Error>> {
 
     let mut img = RgbImage::new(1920, 1280);
     renderer::draw_word(&mut img, "Rust", 100.0, &font);
-    img.save("test_frame.png").unwrap();
+    img.save("out/test_frame.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
     spiral::draw_spiral(&mut img, &config.spiral, 533, 1.0);
-    img.save("spiral.png").unwrap();
+    img.save("out/spiral.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
     spiral::draw_spiral_fast(&mut img, &config.spiral, 533, 1.0);
-    img.save("spiral_fast.png").unwrap();
+    img.save("out/spiral_fast.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
     let spiral_cache = create_spiral_cache(img.width(), img.height());
     spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, 533, 1.0, &spiral_cache);
-    img.save("spiral_fast_with_cache.png").unwrap();
+    img.save("out/spiral_fast_with_cache.png").unwrap();
 
     Ok(())
 }

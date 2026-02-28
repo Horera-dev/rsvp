@@ -34,7 +34,8 @@ pub fn apply_punctuation(word: &str) -> f32 {
     }
 }
 pub fn clean_word(word: &str) -> &str {
-    word.trim_matches(|c: char| !c.is_alphanumeric())
+    word
+    // word.trim_matches(|c: char| !c.is_alphanumeric())
 }
 
 pub fn generate_random_mask(len: usize) -> String {

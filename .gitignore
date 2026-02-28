@@ -1,5 +1,7 @@
 /target
+out/*
 *.png
 *.mp4
 *.gif
 *.mkv
+*.jpg

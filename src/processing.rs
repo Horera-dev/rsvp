@@ -82,7 +82,7 @@ pub fn spawn_ffmpeg_process_gif(
             "palette.png",
             "-filter_complex",
             "paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
-            "output.gif",
+            "out/output.gif",
         ])
         .status()?;
 
@@ -116,7 +116,7 @@ pub fn spawn_ffmpeg_process_video(
             "libx264",
             "-pix_fmt",
             "yuv420p",
-            "output.mp4",
+            "out/output.mp4",
         ])
         .stdin(Stdio::piped())
         .spawn()?;
@@ -155,7 +155,7 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
 
             // Convert WPM to Frames
             // Calculation: (60 sec / WPM) * FPS * bonus
-            let word_duration_base = (active_config.fps / current_wpm) * active_config.fps;
+            let word_duration_base = (60.0 / current_wpm) * active_config.fps;
             let word_duration_weighted = word_duration_base * rsvp::apply_punctuation(word);
 
             // Handle frame distribution
@@ -215,6 +215,36 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
             }
         }
     }
+
+    // If we are working with a gif, we want to make a seamless loop.
+    // So we pad the end with spiraly frames
+    // Function we use is arctan, that goes from -1 to 1, so it's a range of two.
+    // Our rotation offset is multiplied by FPS.
+    let padding = ((2.0 * fps) / (config.spiral.speed)).round() as u32;
+    println!("padding:{}", padding);
+    let remainder = padding - (frame_count % padding);
+    println!("remainder:{}", remainder);
+
+    for _ in 0..remainder {
+        let mut img = RgbImage::new(active_config.width, active_config.height);
+        spiral::draw_spiral_fast_with_cache(
+            &mut img,
+            &config.spiral,
+            frame_count,
+            fps,
+            &spiral_cache,
+        );
+
+        let mut img_path = String::from("out/frame_");
+        img_path.push_str(frame_count.to_string().as_str());
+        img_path.push_str("_padding.jpg");
+        img.save(img_path).unwrap();
+
+        let frame_data = img.into_raw();
+        stdin.write_all(&frame_data)?;
+        frame_count += 1;
+    }
+
     let total_elapsed = start_time.elapsed();
     let avg_per_frame = total_elapsed / frame_count;
 
