@@ -18,21 +18,25 @@ fn draw_basic() -> Result<(), Box<dyn Error>> {
     let font = FontRef::try_from_slice(font_data).expect("Error loading font");
     let config = load_config("configuration.toml")?;
 
+    let frame = 533.0;
+    let fps = config.settings.active_format().fps;
+    let time_secs = frame / fps;
+
     let mut img = RgbImage::new(1920, 1280);
     renderer::draw_word(&mut img, "Rust", 100.0, &font);
     img.save("out/test_frame.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
-    spiral::draw_spiral(&mut img, &config.spiral, 533, 1.0);
+    spiral::draw_spiral(&mut img, &config.spiral, time_secs);
     img.save("out/spiral.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
-    spiral::draw_spiral_fast(&mut img, &config.spiral, 533, 1.0);
+    spiral::draw_spiral_fast(&mut img, &config.spiral, time_secs);
     img.save("out/spiral_fast.png").unwrap();
 
     let mut img = RgbImage::new(1920, 1280);
     let spiral_cache = create_spiral_cache(img.width(), img.height());
-    spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, 533, 1.0, &spiral_cache);
+    spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, time_secs, &spiral_cache);
     img.save("out/spiral_fast_with_cache.png").unwrap();
 
     Ok(())
@@ -42,10 +46,12 @@ fn draw_basic() -> Result<(), Box<dyn Error>> {
 fn benchmark_spiral() -> Result<(), Box<dyn Error>> {
     let mut img = RgbImage::new(1920, 1280);
     let config = load_config("configuration.toml")?;
-    let start = std::time::Instant::now();
     let frames = 100;
-    for i in 0..frames {
-        spiral::draw_spiral(&mut img, &config.spiral, i, 50.0);
+    let fps = config.settings.active_format().fps;
+    let start = std::time::Instant::now();
+    for frame in 0..frames {
+        let time_secs = frame as f32 / fps;
+        spiral::draw_spiral(&mut img, &config.spiral, time_secs);
     }
     println!("{} frames took: {:?}", frames, start.elapsed());
     println!("1 frame took: {:?}", start.elapsed() / frames);
@@ -56,10 +62,12 @@ fn benchmark_spiral() -> Result<(), Box<dyn Error>> {
 fn benchmark_spiral_fast() -> Result<(), Box<dyn Error>> {
     let mut img = RgbImage::new(1920, 1280);
     let config = load_config("configuration.toml")?;
-    let start = std::time::Instant::now();
+    let fps = config.settings.active_format().fps;
     let frames = 1000;
-    for i in 0..frames {
-        spiral::draw_spiral_fast(&mut img, &config.spiral, i, 50.0);
+    let start = std::time::Instant::now();
+    for frame in 0..frames {
+        let time_secs = frame as f32 / fps;
+        spiral::draw_spiral_fast(&mut img, &config.spiral, time_secs);
     }
     println!("{} frames took: {:?}", frames, start.elapsed());
     println!("1 frame took: {:?}", start.elapsed() / frames);
@@ -70,11 +78,13 @@ fn benchmark_spiral_fast() -> Result<(), Box<dyn Error>> {
 fn benchmark_spiral_fast_with_cache() -> Result<(), Box<dyn Error>> {
     let mut img = RgbImage::new(1920, 1280);
     let config = load_config("configuration.toml")?;
-    let start = std::time::Instant::now();
+    let fps = config.settings.active_format().fps;
     let spiral_cache = create_spiral_cache(img.width(), img.height());
     let frames = 1000;
-    for i in 0..frames {
-        spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, i, 50.0, &spiral_cache);
+    let start = std::time::Instant::now();
+    for frame in 0..frames {
+        let time_secs = frame as f32 / fps;
+        spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, time_secs, &spiral_cache);
     }
     println!("{} frames took: {:?}", frames, start.elapsed());
     println!("1 frame took: {:?}", start.elapsed() / frames);
