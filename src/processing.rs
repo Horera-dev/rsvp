@@ -12,8 +12,9 @@ use image::RgbImage;
 use crate::{
     config::Config,
     io, renderer,
-    rsvp::{self, generate_random_mask},
-    spiral::{self, create_spiral_cache},
+    rsvp::generate_random_mask,
+    scheduler::{FrameInstruction, compute_schedule},
+    spiral::{self, SpiralCache, create_spiral_cache},
 };
 
 pub fn spawn_ffmpeg_process_gif(
@@ -137,123 +138,68 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
         .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
     let start_time = Instant::now(); // Start the stopwatch
     let active_config = config.settings.active_format();
-    let fps = active_config.fps;
     let spiral_cache = create_spiral_cache(active_config.width, active_config.height);
-    let mut frame_count = 0;
-    for block in &config.blocks {
-        let words: Vec<&str> = block.text.split_whitespace().collect();
-        let scale = block.get_scale(active_config.scale);
-        let easing = block.get_easing(active_config.easing.clone());
 
-        // We use a float to track fractional frames to prevent "micro-stutters"
-        let mut fractional_frames_buffer: f32 = 0.0;
+    // Phase 1: figure out what to render
+    let instructions = compute_schedule(config);
+    println!("Schedule computed: {} frames", instructions.len());
 
-        for (i, word) in words.iter().enumerate() {
-            // Compute the speed for this specific word
-            let progress = rsvp::compute_progress(words.len(), i);
-            let current_wpm = rsvp::apply_easing(&easing, block.wpm_from, block.wpm_to, progress);
+    // Phase 2: render all instructions
+    for instruction in instructions.iter() {
+        render_instruction(stdin, instruction, config, &spiral_cache, &font)?;
+    }
 
-            // Convert WPM to Frames
-            // Calculation: (60 sec / WPM) * FPS * bonus
-            let word_duration_base = (60.0 / current_wpm) * active_config.fps;
-            let word_duration_weighted = word_duration_base * rsvp::apply_punctuation(word);
+    let elapsed = start_time.elapsed();
+    let n = instructions.len() as u32;
+    println!("--- Performance Report ---");
+    println!(
+        "Total: {:?} | Frames: {} | Avg: {:?} | FPS: {:.2}",
+        elapsed,
+        n,
+        elapsed / n,
+        1.0 / (elapsed / n).as_secs_f32()
+    );
+    println!("--- End of Performance Report ---");
 
-            // Handle frame distribution
-            // We add the fractional remainder from the last word to the current word
-            let total_frames_raw = word_duration_weighted + fractional_frames_buffer;
-            let frames_to_render = total_frames_raw.round();
-            fractional_frames_buffer = total_frames_raw - frames_to_render;
+    Ok(())
+}
 
-            if frames_to_render < 1.0 {
-                continue;
-            }
+fn render_instruction(
+    stdin: &mut ChildStdin,
+    instruction: &FrameInstruction,
+    config: &Config,
+    spiral_cache: &SpiralCache,
+    font: &FontRef,
+) -> Result<(), Box<dyn Error>> {
+    let active = config.settings.active_format();
 
-            // Render
-            let cleaned_word = rsvp::clean_word(word);
+    let mut img = RgbImage::new(active.width, active.height);
 
-            // Pipe
-
-            let word_frames = frames_to_render as u32 - config.settings.masking_frames;
-            for _ in 0..word_frames {
-                let frame_start = Instant::now(); // Timer for a single frame
-
-                let mut img = RgbImage::new(active_config.width, active_config.height);
-                spiral::draw_spiral_fast_with_cache(
-                    &mut img,
-                    &config.spiral,
-                    frame_count,
-                    fps,
-                    &spiral_cache,
-                );
-                renderer::draw_word(&mut img, cleaned_word, scale, &font);
-                let frame_data = img.into_raw();
-                stdin.write_all(&frame_data)?;
-                frame_count += 1;
-
-                // Optional: Log every 100 frames to see if performance degrades
-                if frame_count % 100 == 0 {
-                    let elapsed = frame_start.elapsed();
-                    println!("Frame {} took: {:?}", frame_count, elapsed);
-                }
-            }
-
-            for _ in 0..config.settings.masking_frames {
-                let mut img = RgbImage::new(active_config.width, active_config.height);
-                spiral::draw_spiral_fast_with_cache(
-                    &mut img,
-                    &config.spiral,
-                    frame_count,
-                    fps,
-                    &spiral_cache,
-                );
-                let mask = generate_random_mask(word.len());
-                renderer::draw_word(&mut img, &mask, scale, &font);
-                let frame_data = img.into_raw();
-                stdin.write_all(&frame_data)?;
-                frame_count += 1;
-                // println!("{}", frame_count);
-            }
+    match instruction {
+        FrameInstruction::Word {
+            time_secs,
+            word,
+            scale,
+        } => {
+            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            renderer::draw_word(&mut img, word, *scale, font);
+        }
+        FrameInstruction::Mask {
+            time_secs,
+            word_len,
+            scale,
+        } => {
+            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            let mask = generate_random_mask(*word_len); // randomness lives here
+            renderer::draw_word(&mut img, &mask, *scale, font);
+        }
+        FrameInstruction::Padding { time_secs } => {
+            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            // no text — spiral only
         }
     }
 
-    // If we are working with a gif, we want to make a seamless loop.
-    // So we pad the end with spiraly frames
-    // Function we use is arctan, that goes from -1 to 1, so it's a range of two.
-    // Our rotation offset is multiplied by FPS.
-    let padding = ((2.0 * fps) / (config.spiral.speed)).round() as u32;
-    println!("padding:{}", padding);
-    let remainder = padding - (frame_count % padding);
-    println!("remainder:{}", remainder);
-
-    for _ in 0..remainder {
-        let mut img = RgbImage::new(active_config.width, active_config.height);
-        spiral::draw_spiral_fast_with_cache(
-            &mut img,
-            &config.spiral,
-            frame_count,
-            fps,
-            &spiral_cache,
-        );
-
-        let mut img_path = String::from("out/frame_");
-        img_path.push_str(frame_count.to_string().as_str());
-        img_path.push_str("_padding.jpg");
-        img.save(img_path).unwrap();
-
-        let frame_data = img.into_raw();
-        stdin.write_all(&frame_data)?;
-        frame_count += 1;
-    }
-
-    let total_elapsed = start_time.elapsed();
-    let avg_per_frame = total_elapsed / frame_count;
-
-    println!("--- Performance Report ---");
-    println!("Total Render Time: {:?}", total_elapsed);
-    println!("Total Frames: {}", frame_count);
-    println!("Average Time per Frame: {:?}", avg_per_frame);
-    println!("Effective FPS: {:.2}", 1.0 / avg_per_frame.as_secs_f32());
-    println!("--- End of Performance Report ---");
+    stdin.write_all(&img.into_raw())?;
 
     Ok(())
 }

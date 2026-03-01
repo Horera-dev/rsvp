@@ -4,6 +4,7 @@ mod io;
 mod processing;
 mod renderer;
 mod rsvp;
+mod scheduler;
 mod spiral;
 mod tests;
 
