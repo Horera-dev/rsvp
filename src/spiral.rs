@@ -30,11 +30,11 @@ pub fn create_spiral_cache(width: u32, height: u32) -> SpiralCache {
 pub fn draw_spiral_fast_with_cache(
     img: &mut RgbImage,
     config: &SpiralSettings,
-    frame: u32,
-    fps: f32,
+    time_secs: f32,
     cache: &SpiralCache,
 ) {
-    let rotation_offset = -((frame as f32 * PI * config.speed) / (fps * config.branches));
+    let clockwise_value = if config.clockwise { -1.0 } else { 1.0 };
+    let rotation_offset = (clockwise_value * time_secs * PI * config.speed) / config.branches;
     let dist_to_edge = img.height().min(img.width()) as f32 / config.shrink_height;
 
     img.as_flat_samples_mut()
@@ -51,12 +51,12 @@ pub fn draw_spiral_fast_with_cache(
         })
 }
 
-pub fn draw_spiral_fast(img: &mut RgbImage, config: &SpiralSettings, frame: u32, fps: f32) {
+pub fn draw_spiral_fast(img: &mut RgbImage, config: &SpiralSettings, time_secs: f32) {
     let width = img.width();
     let height = img.height();
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
-    let rotation_offset = -(frame as f32 / fps) * PI * config.speed;
+    let rotation_offset = -((time_secs * PI * config.speed) / config.branches);
 
     // Access the raw byte buffer of the existing image
     // .par_chunks_exact_mut(3) gives us parallel access to [R, G, B] groups
@@ -77,12 +77,12 @@ pub fn draw_spiral_fast(img: &mut RgbImage, config: &SpiralSettings, frame: u32,
         });
 }
 
-pub fn draw_spiral(img: &mut RgbImage, config: &SpiralSettings, frame: u32, fps: f32) {
+pub fn draw_spiral(img: &mut RgbImage, config: &SpiralSettings, time_secs: f32) {
     let width = img.width();
     let height = img.height();
     let center_x = width as f32 / 2.0;
     let center_y = height as f32 / 2.0;
-    let rotation_offset = -(frame as f32 / fps) * PI * config.speed;
+    let rotation_offset = -((time_secs * PI * config.speed) / config.branches);
 
     for y in 0..height {
         for x in 0..width {

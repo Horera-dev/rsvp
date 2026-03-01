@@ -48,6 +48,7 @@ pub struct SpiralSettings {
     pub darker_color: f32,
     pub speed: f32,
     pub shrink_height: f32,
+    pub clockwise: bool,
 }
 
 #[derive(Deserialize)]

@@ -1,6 +1,6 @@
 [settings]
 font_path = "assets/Roboto-Black.ttf"
-renderer = "video"
+renderer = "gif"
 masking_frames = 0
 
 [settings.video]
@@ -11,20 +11,21 @@ scale = 100.0
 easing = "linear"
 
 [settings.gif]
-width = 480
-height = 320
+width = 720
+height = 480
 fps = 50.0
 scale = 60.0
 easing = "linear"
 
 [spiral]
-thickness = 6.0
-curvature = 0.18
-smoothness = 0.2
+branches = 3.0
+curvature = 0.10
+smoothness = 0.01
 lighter_color = 0.0
 darker_color = 40.0
-speed = 0.25
+speed = 2.0
 shrink_height = 2.0
+clockwise = false
 
 # [[blocks]]
 # text = "This is a simple test"
@@ -72,10 +73,10 @@ shrink_height = 2.0
 # wpm_from = 200.0
 # wpm_to = 600.0
 
-[[blocks]]
-text = "Restes concentré sur cette lettre au centre. Nous sommes maintenant à une vitesse de 600 mots par minutes. C'est 3x fois plus que la vitesse moyenne de lecture chez les adultes. Et pourtant tu arrives a suivre cette vitesse. Tu peut t'aperçevoir que ton cerveau est capable de lire tout ce qui lui est"
-wpm_from = 600.0
-wpm_to = 600.0
+# [[blocks]]
+# text = "Restes concentré sur cette lettre au centre. Nous sommes maintenant à une vitesse de 600 mots par minutes. C'est 3x fois plus que la vitesse moyenne de lecture chez les adultes. Et pourtant tu arrives a suivre cette vitesse. Tu peut t'aperçevoir que ton cerveau est capable de lire tout ce qui lui est"
+# wpm_from = 600.0
+# wpm_to = 600.0
 
 # [[blocks]]
 # text = "présenté. Félicitations."
@@ -92,7 +93,22 @@ wpm_to = 600.0
 # wpm_to = 60.0
 # easing = "instant"
 
+[[blocks]]
+text = "Les chats"
+wpm_to = 200.0
+easing = "instant"
+
 # [[blocks]]
-# text = "J'aime bien savoir dans quoi je rentre."
+# text = "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40"
+# wpm_from = 60.0
+# wpm_to = 60.0
+
+# [[blocks]]
+# text = "Take a break."
 # wpm_to = 200.0
+# easing = "instant"
+
+# [[blocks]]
+# text = "J'aime garder une mars de mystère"
+# wpm_to = 400.0
 # easing = "instant"
