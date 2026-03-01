@@ -69,13 +69,11 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
         }
     }
 
-    let period = ((2.0 * fps) / (config.spiral.speed)).round() as u32;
+    // (TAU * speed * T) / branches = TAU / branches
+    // TAU * speed * T = TAU
+    // T = 1 / speed     seconds
+    let period = (fps / config.spiral.speed).round() as u32;
     let remainder = period - (frame_count % period);
-
-    println!(
-        "Frame: {}; Period: {}; Remainder: {}",
-        frame_count, period, remainder
-    );
 
     for _ in 0..remainder {
         instructions.push(FrameInstruction::Padding {
