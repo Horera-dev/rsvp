@@ -41,12 +41,11 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
             let total_raw = weighted + frac_buffer;
             let frames = total_raw.round();
             frac_buffer = total_raw - frames;
-
             if frames < 1.0 {
                 continue;
             }
 
-            let word_frames = frames as u32 - config.settings.masking_frames;
+            let word_frames = frames as u32;
             let cleaned = rsvp::clean_word(word).to_string();
 
             // Push one instruction per frame — no rendering here, just description
@@ -70,9 +69,13 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
         }
     }
 
-    // Padding phase — same math, just no text
-    let period = ((2.0 * fps) / config.spiral.speed).round() as u32;
+    let period = ((2.0 * fps) / (config.spiral.speed)).round() as u32;
     let remainder = period - (frame_count % period);
+
+    println!(
+        "Frame: {}; Period: {}; Remainder: {}",
+        frame_count, period, remainder
+    );
 
     for _ in 0..remainder {
         instructions.push(FrameInstruction::Padding {
