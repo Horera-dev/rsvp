@@ -12,7 +12,13 @@ Il permet de lire du texte en ayant une vitesse bien plus rapide.
 Chaque paragraphe devient un block automatiquement.
 
 @wpm 600
+
 Restes concentré.
+Affiche un mot mis en
+
+@flash color=#FF4444 fade_frames=12
+
+Avant
 
 
 # lines are comments, ignored
@@ -23,3 +29,8 @@ Restes concentré.
 # A blank line separates blocks
 # Directives before the first text block set the current state, inherited by all following blocks until overridden
 # A directive mid-paragraph applies to the next block, not the current one
+
+# Added: directive @flash
+# @flash bgColor=255.0,255.0,255.0 color=255.0,80.0,80.0
+# color is optional — falls back to config default
+# fade_frames is optional — falls back to config default

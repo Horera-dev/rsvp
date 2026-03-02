@@ -29,10 +29,11 @@ pub fn apply_easing(easing: &Easing, from: f32, to: f32, progress: f32) -> f32 {
 const PUNCTUATION: [char; 5] = ['.', '!', '?', ';', ','];
 pub fn apply_punctuation(word: &str) -> f32 {
     match word.ends_with(PUNCTUATION) {
-        true => 2.0,
+        true => 1.7,
         false => 1.0,
     }
 }
+
 pub fn clean_word(word: &str) -> &str {
     word
     // word.trim_matches(|c: char| !c.is_alphanumeric())

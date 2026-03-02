@@ -58,6 +58,11 @@ pub struct SpiralSettings {
     pub tint_strength: f32,
 }
 
+#[derive(Copy, Clone, Deserialize)]
+pub struct FlashSettings {
+    pub accent_color: [f32; 3], // word color during flash
+}
+
 #[derive(Deserialize)]
 pub struct Block {
     pub text: String,
@@ -69,6 +74,7 @@ pub struct Block {
     pub wpm_to: f32,
     pub easing: Option<Easing>,
     pub scale: Option<f32>,
+    pub flash: Option<FlashSettings>,
 }
 
 fn default_float() -> f32 {

@@ -20,6 +20,23 @@ pub enum FrameInstruction {
         scale: f32,
         wpm: f32,
     },
+    /// Full power flash: draw white + the word
+    FlashWhite {
+        time_secs: f32,
+        word: String,
+        scale: f32,
+        accent_color: [f32; 3],
+        wpm: f32,
+    },
+    /// Flash fading: white fade to normal black bg + spiral + word on top
+    FlashFade {
+        time_secs: f32,
+        word: String,
+        scale: f32,
+        accent_color: [f32; 3],
+        fade_t: f32, // 0.0 = still white, 1.0 = fully back to normal
+        wpm: f32,
+    },
     /// A padding frame: draw the spiral only, no text.
     Padding { time_secs: f32 },
 }
@@ -52,25 +69,53 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
             let word_frames = frames as u32;
             let cleaned = rsvp::clean_word(word).to_string();
 
-            // Push one instruction per frame — no rendering here, just description
-            for _ in 0..word_frames {
-                instructions.push(FrameInstruction::Word {
-                    time_secs: frame_count as f32 / fps,
-                    word: cleaned.clone(),
-                    scale,
-                    wpm,
-                });
-                frame_count += 1;
-            }
+            if let Some(flash) = &block.flash {
+                // Phase 1: x frames of flashing white
+                for _ in 0..word_frames {
+                    instructions.push(FrameInstruction::FlashWhite {
+                        time_secs: frame_count as f32 / fps,
+                        word: cleaned.clone(),
+                        scale,
+                        accent_color: flash.accent_color,
+                        wpm,
+                    });
+                    frame_count += 1;
+                }
 
-            for _ in 0..config.settings.masking_frames {
-                instructions.push(FrameInstruction::Mask {
-                    time_secs: frame_count as f32 / fps,
-                    word_len: word.len(),
-                    scale,
-                    wpm,
-                });
-                frame_count += 1;
+                // Phase 2: fade frames — spiral emerges through white
+                for i in 0..word_frames {
+                    let fade_t = (i + 1) as f32 / frames; // 0.0 → 1.0
+                    instructions.push(FrameInstruction::FlashFade {
+                        time_secs: frame_count as f32 / fps,
+                        word: cleaned.clone(),
+                        scale,
+                        accent_color: flash.accent_color,
+                        fade_t,
+                        wpm,
+                    });
+                    frame_count += 1;
+                }
+            } else {
+                // Push one instruction per frame — no rendering here, just description
+                for _ in 0..word_frames {
+                    instructions.push(FrameInstruction::Word {
+                        time_secs: frame_count as f32 / fps,
+                        word: cleaned.clone(),
+                        scale,
+                        wpm,
+                    });
+                    frame_count += 1;
+                }
+
+                for _ in 0..config.settings.masking_frames {
+                    instructions.push(FrameInstruction::Mask {
+                        time_secs: frame_count as f32 / fps,
+                        word_len: word.len(),
+                        scale,
+                        wpm,
+                    });
+                    frame_count += 1;
+                }
             }
         }
     }
@@ -120,23 +165,44 @@ pub fn dump_schedule(
             FrameInstruction::Word {
                 time_secs,
                 word,
-                scale,
+                scale: _,
                 wpm,
             } => format!(
-                "{:>6} | {:.4}s | WORD  | {:.2}x | {:.1}wpm | {:?} \n",
-                i, time_secs, scale, wpm, word
+                "{:>6} | {:>6.2}s | WORD       | {:.1}wpm | {:?} \n",
+                i, time_secs, wpm, word
             ),
             FrameInstruction::Mask {
                 time_secs,
                 word_len,
-                scale,
+                scale: _,
                 wpm,
             } => format!(
-                "{:>6} | {:.4}s | MASK  | {:.2}x | {:.1}wpm | len={} \n",
-                i, time_secs, scale, wpm, word_len
+                "{:>6} | {:>6.2}s | MASK       | {:.1}wpm | len={} \n",
+                i, time_secs, wpm, word_len
+            ),
+            FrameInstruction::FlashWhite {
+                time_secs,
+                word,
+                scale: _,
+                accent_color: _,
+                wpm,
+            } => format!(
+                "{:>6} | {:>6.2}s | FLASH      | {:.1}wpm |  {:?} \n",
+                i, time_secs, wpm, word
+            ),
+            FrameInstruction::FlashFade {
+                time_secs,
+                word,
+                scale: _,
+                accent_color: _,
+                fade_t: _,
+                wpm,
+            } => format!(
+                "{:>6} | {:>6.2}s | FADE-FLASH | {:.1}wpm | {:?} \n",
+                i, time_secs, wpm, word
             ),
             FrameInstruction::Padding { time_secs } => {
-                format!("{:>6} | {:.4}s | PAD   |\n", i, time_secs)
+                format!("{:>6} | {:>6.2}s | PAD        |\n", i, time_secs)
             }
         };
         file.write_all(line.as_bytes())?;

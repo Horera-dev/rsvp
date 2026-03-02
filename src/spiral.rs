@@ -11,7 +11,7 @@ use std::f32::consts::TAU;
 use image::RgbImage;
 use rayon::prelude::*;
 
-use crate::config::SpiralSettings;
+use crate::{config::SpiralSettings, renderer};
 
 pub struct SpiralCache {
     pub distances: Vec<f32>,
@@ -68,22 +68,13 @@ pub fn draw_spiral_fast_with_cache(
         })
 }
 
-/// Smoothstep easing — feels much more natural than linear lerp for color blending.
-fn smoothstep(t: f32) -> f32 {
-    t * t * (3.0 - 2.0 * t)
-}
-
-fn lerp(a: f32, b: f32, lerp_max: f32) -> f32 {
-    a / lerp_max + (b / lerp_max - a / lerp_max)
-}
-
 // Everything internal works in 0.0–1.0 normalized floats.
 // Only `to_pixel` touches u8.
 fn spiral_intensity(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettings) -> f32 {
     let spiral_value = (config.curvature * r + theta * config.branches).cos();
     let fade = 1.0 - (r / dist_to_edge).clamp(0.0, 1.0);
     let t = ((spiral_value + config.smoothness) / (config.smoothness * 2.0)).clamp(0.0, 1.0);
-    smoothstep(t) * fade // 0.0–1.0
+    renderer::smoothstep(t) * fade // 0.0–1.0
 }
 
 fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> f32 {
@@ -94,12 +85,13 @@ fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> f32 {
 }
 
 pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> [f32; 3] {
-    let t =
-        smoothstep(((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0));
+    let t = renderer::smoothstep(
+        ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0),
+    );
     [
-        lerp(config.color_slow[0], config.color_fast[0], 255.0) * t,
-        lerp(config.color_slow[1], config.color_fast[1], 255.0) * t,
-        lerp(config.color_slow[2], config.color_fast[2], 255.0) * t,
+        renderer::lerp(config.color_slow[0], config.color_fast[0], 255.0) * t,
+        renderer::lerp(config.color_slow[1], config.color_fast[1], 255.0) * t,
+        renderer::lerp(config.color_slow[2], config.color_fast[2], 255.0) * t,
     ]
 }
 

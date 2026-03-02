@@ -185,6 +185,12 @@ fn render_instruction(
 
     let mut img = RgbImage::new(active.width, active.height);
 
+    // Every frame has a spiral — only the tint and overlay differ
+    let draw_spiral = |img: &mut RgbImage, time_secs: f32, wpm: f32| {
+        let tint = wpm_to_tint(wpm, &config.spiral);
+        spiral::draw_spiral_fast_with_cache(img, &config.spiral, time_secs, spiral_cache, tint);
+    };
+
     match instruction {
         FrameInstruction::Word {
             time_secs,
@@ -192,14 +198,7 @@ fn render_instruction(
             scale,
             wpm,
         } => {
-            let tint = wpm_to_tint(*wpm, &config.spiral);
-            spiral::draw_spiral_fast_with_cache(
-                &mut img,
-                &config.spiral,
-                *time_secs,
-                spiral_cache,
-                tint,
-            );
+            draw_spiral(&mut img, *time_secs, *wpm);
             renderer::draw_word(&mut img, word, *scale, font);
         }
         FrameInstruction::Mask {
@@ -208,27 +207,35 @@ fn render_instruction(
             scale,
             wpm,
         } => {
-            let tint = wpm_to_tint(*wpm, &config.spiral);
-            spiral::draw_spiral_fast_with_cache(
-                &mut img,
-                &config.spiral,
-                *time_secs,
-                spiral_cache,
-                tint,
-            );
+            draw_spiral(&mut img, *time_secs, *wpm);
             let mask = generate_random_mask(*word_len); // randomness lives here
             renderer::draw_word(&mut img, &mask, *scale, font);
         }
         FrameInstruction::Padding { time_secs } => {
-            let tint = wpm_to_tint(0.0, &config.spiral);
-            spiral::draw_spiral_fast_with_cache(
-                &mut img,
-                &config.spiral,
-                *time_secs,
-                spiral_cache,
-                tint,
-            );
-            // no text — spiral only
+            draw_spiral(&mut img, *time_secs, 0.0);
+        }
+        FrameInstruction::FlashWhite {
+            time_secs,
+            word,
+            scale,
+            accent_color,
+            wpm: _,
+        } => {
+            draw_spiral(&mut img, *time_secs, 0.0);
+            renderer::wash_to_white(&mut img, 1.0); // instant cut to white
+            renderer::draw_word_colored(&mut img, word, *scale, font, *accent_color);
+        }
+        FrameInstruction::FlashFade {
+            time_secs,
+            word,
+            scale,
+            accent_color,
+            fade_t,
+            wpm,
+        } => {
+            draw_spiral(&mut img, *time_secs, *wpm);
+            renderer::wash_to_white(&mut img, renderer::smoothstep(1.0 - fade_t)); // fades as fade_t → 1.0
+            renderer::draw_word_colored(&mut img, word, *scale, font, *accent_color);
         }
     }
 

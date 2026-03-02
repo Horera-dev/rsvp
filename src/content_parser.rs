@@ -1,6 +1,6 @@
 // script.rs
 
-use crate::config::{Block, Easing};
+use crate::config::{Block, Easing, FlashSettings};
 
 #[derive(Debug)]
 pub enum ScriptError {
@@ -9,6 +9,7 @@ pub enum ScriptError {
     InvalidEasing(usize, String),
     InvalidScale(usize, String),
     NoWpmDefined(usize), // a block has no wpm at all
+    InvalidFlash(usize, String),
 }
 
 impl std::fmt::Display for ScriptError {
@@ -25,6 +26,9 @@ impl std::fmt::Display for ScriptError {
                 write!(f, "Line {}: invalid @scale value '{}'", l, s)
             }
             ScriptError::NoWpmDefined(l) => write!(f, "Line {}: text block has no @wpm defined", l),
+            ScriptError::InvalidFlash(l, s) => {
+                write!(f, "Line {}: invalid @flash defined: '{}'", l, s)
+            }
         }
     }
 }
@@ -38,6 +42,7 @@ struct State {
     wpm_to: Option<f32>,
     easing: Option<Easing>,
     scale: Option<f32>,
+    flash: Option<FlashSettings>,
 }
 
 impl State {
@@ -47,6 +52,7 @@ impl State {
             wpm_to: None,
             easing: None,
             scale: None,
+            flash: None,
         }
     }
 }
@@ -78,6 +84,7 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
             wpm_to,
             easing: state.easing.clone(),
             scale: state.scale,
+            flash: state.flash,
         });
 
         text_buf.clear();
@@ -138,6 +145,26 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
                             .map_err(|_| ScriptError::InvalidScale(line_no, rest.to_string()))?,
                     );
                 }
+                "flash" => {
+                    let mut accent_color: [f32; 3] = [255.0, 80.0, 80.0];
+                    // let mut bg_color: [f32; 3] = [255.0, 255.0, 255.0];
+
+                    for raw in rest.split_whitespace() {
+                        if let Some(val) = raw.strip_prefix("color=") {
+                            accent_color = parse_color(val)
+                                .map_err(|e| ScriptError::InvalidFlash(line_no, e))?;
+                        }
+                        // else if let Some(val) = raw.strip_prefix("bgColor=") {
+                        //     bg_color = parse_color(val)
+                        //         .map_err(|e| ScriptError::InvalidFlash(line_no, e))?;
+                        // }
+                    }
+
+                    state.flash = Some(FlashSettings {
+                        accent_color,
+                        // bg_color,
+                    });
+                }
                 _ => return Err(ScriptError::UnknownDirective(line_no, line.to_string())),
             }
 
@@ -158,4 +185,27 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
     flush(&mut text_buf, &state, &mut blocks, buf_start_line)?;
 
     Ok(blocks)
+}
+
+fn parse_color(val: &str) -> Result<[f32; 3], String> {
+    let parts: Vec<&str> = val.split(',').collect();
+    if parts.len() != 3 {
+        return Err(format!("expected 3 components, got {}", parts.len()));
+    }
+    let color: [f32; 3] = [
+        parts[0]
+            .trim()
+            .parse()
+            .map_err(|_| format!("invalid red component '{}'", parts[0].trim()))?,
+        parts[1]
+            .trim()
+            .parse()
+            .map_err(|_| format!("invalid green component '{}'", parts[1].trim()))?,
+        parts[2]
+            .trim()
+            .parse()
+            .map_err(|_| format!("invalid blue component '{}'", parts[2].trim()))?,
+    ];
+
+    Ok(color)
 }

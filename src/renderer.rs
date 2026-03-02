@@ -17,7 +17,40 @@ pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     let (x_offset, y_offset) = calculate_alignment(img, orp_center_x, &scaled_font);
 
     // --- Draw the glyphs onto the image buffer ---
-    render_glyphs_to_image(img, glyphs, orp_index, x_offset, y_offset, font);
+    for (i, glyph) in glyphs.into_iter().enumerate() {
+        if let Some(outlined) = font.outline_glyph(glyph) {
+            let is_orp = i == orp_index;
+            draw_outlined_glyph(img, outlined, x_offset, y_offset, is_orp);
+        }
+    }
+}
+
+pub fn draw_word_colored(
+    img: &mut RgbImage,
+    word: &str,
+    scale: f32,
+    font: &FontRef,
+    color: [f32; 3],
+) {
+    // --- Prepare font settings ---
+    let px_scale = PxScale::from(scale);
+    let scaled_font = font.as_scaled(px_scale);
+    let chars: Vec<char> = word.chars().collect();
+    let orp_index = determine_orp(chars.len());
+
+    // --- Position glyphs relative to (0,0) ---
+    let (glyphs, orp_center_x) = layout_word(word, orp_index, px_scale, &scaled_font);
+
+    // --- Calculate where to place the word on the screen---
+    let (x_offset, y_offset) = calculate_alignment(img, orp_center_x, &scaled_font);
+
+    // --- Draw the glyphs onto the image buffer ---
+
+    for glyph in glyphs.into_iter() {
+        if let Some(outlined) = font.outline_glyph(glyph) {
+            draw_outlined_glyph_colored(img, outlined, x_offset, y_offset, color);
+        }
+    }
 }
 
 /// Handles horizontal positioning and kerning
@@ -73,23 +106,6 @@ fn calculate_alignment(
     (x_offset, y_offset)
 }
 
-/// Final rasterization step
-fn render_glyphs_to_image(
-    img: &mut RgbImage,
-    glyphs: Vec<Glyph>,
-    orp_index: usize,
-    x_offset: f32,
-    y_offset: f32,
-    font: &FontRef,
-) {
-    for (i, glyph) in glyphs.into_iter().enumerate() {
-        if let Some(outlined) = font.outline_glyph(glyph) {
-            let is_orp = i == orp_index;
-            draw_outlined_glyph(img, outlined, x_offset, y_offset, is_orp);
-        }
-    }
-}
-
 /// Draws a single glyph with anti-aliasing
 fn draw_outlined_glyph(
     img: &mut RgbImage,
@@ -120,10 +136,53 @@ fn draw_outlined_glyph(
     });
 }
 
+/// Draws a single glyph with anti-aliasing
+fn draw_outlined_glyph_colored(
+    img: &mut RgbImage,
+    outlined: OutlinedGlyph,
+    x_offset: f32,
+    y_offset: f32,
+    color: [f32; 3],
+) {
+    let width = img.width();
+    let height = img.height();
+    let bounds = outlined.px_bounds();
+    outlined.draw(|x, y, coverage| {
+        let px = (x as f32 + bounds.min.x + x_offset) as u32;
+        let py = (y as f32 + bounds.min.y + y_offset) as u32;
+
+        if px < width && py < height {
+            let background_rgb = img.get_pixel(px, py).0;
+            let pixel = alpha_blend(color, background_rgb, coverage);
+            img.put_pixel(px, py, pixel);
+        }
+    });
+}
+
 fn alpha_blend(color: [f32; 3], background: [u8; 3], coverage: f32) -> Rgb<u8> {
     // Alpha Blending Formula: Result = (Front * Alpha) + (Background * (1 - Alpha))
     let r = (color[0] * coverage + background[0] as f32 * (1.0 - coverage)) as u8;
     let g = (color[1] * coverage + background[1] as f32 * (1.0 - coverage)) as u8;
     let b = (color[2] * coverage + background[2] as f32 * (1.0 - coverage)) as u8;
     Rgb([r, g, b])
+}
+
+/// Smoothstep easing — feels much more natural than linear lerp for color blending.
+pub fn smoothstep(t: f32) -> f32 {
+    t * t * (3.0 - 2.0 * t)
+}
+
+pub fn lerp(a: f32, b: f32, lerp_max: f32) -> f32 {
+    a / lerp_max + (b / lerp_max - a / lerp_max)
+}
+
+pub fn wash_to_white(img: &mut RgbImage, amount: f32) {
+    if amount <= 0.0 {
+        return;
+    } // skip if no wash needed
+    img.pixels_mut().for_each(|p| {
+        p[0] = (p[0] as f32 + (255.0 - p[0] as f32) * amount) as u8;
+        p[1] = (p[1] as f32 + (255.0 - p[1] as f32) * amount) as u8;
+        p[2] = (p[2] as f32 + (255.0 - p[2] as f32) * amount) as u8;
+    });
 }
