@@ -70,14 +70,14 @@ impl Color {
         }
     }
 
-    /// Creates a Color from a normalized [f32; 3] array
-    pub fn from_normalized(channels: [f32; 3]) -> Self {
-        Self {
-            r: channels[0] * 255.0,
-            g: channels[1] * 255.0,
-            b: channels[2] * 255.0,
-        }
-    }
+    // Creates a Color from a normalized [f32; 3] array
+    // pub fn from_normalized(channels: [f32; 3]) -> Self {
+    //     Self {
+    //         r: channels[0] * 255.0,
+    //         g: channels[1] * 255.0,
+    //         b: channels[2] * 255.0,
+    //     }
+    // }
 
     pub fn lerp(self, other: Color, t: f32) -> Color {
         Color {
@@ -87,18 +87,18 @@ impl Color {
         }
     }
 
-    pub fn scale(self, factor: f32) -> Color {
-        Color {
-            r: self.r * factor,
-            g: self.g * factor,
-            b: self.b * factor,
-        }
-    }
+    // pub fn scale(self, factor: f32) -> Color {
+    //     Color {
+    //         r: self.r * factor,
+    //         g: self.g * factor,
+    //         b: self.b * factor,
+    //     }
+    // }
 
-    /// Returns the color with values scaled to 0.0 - 1.0
-    pub fn normalized(&self) -> [f32; 3] {
-        [self.r / 255.0, self.g / 255.0, self.b / 255.0]
-    }
+    // Returns the color with values scaled to 0.0 - 1.0
+    // pub fn normalized(&self) -> [f32; 3] {
+    //     [self.r / 255.0, self.g / 255.0, self.b / 255.0]
+    // }
 
     pub fn to_pixel(self) -> [u8; 3] {
         [
@@ -108,9 +108,9 @@ impl Color {
         ]
     }
 
-    pub fn to_array(self) -> [f32; 3] {
-        [self.r, self.g, self.b]
-    }
+    // pub fn to_array(self) -> [f32; 3] {
+    //     [self.r, self.g, self.b]
+    // }
 
     pub fn to_rgb(self) -> Rgb<u8> {
         Rgb(self.to_pixel())

@@ -194,7 +194,7 @@ fn parse_color(val: &str) -> Result<Color, String> {
     if parts.len() != 3 {
         return Err(format!("expected 3 components, got {}", parts.len()));
     }
-    let pixel: [u8; 3] = [
+    let pixel: [f32; 3] = [
         parts[0]
             .trim()
             .parse()
@@ -209,5 +209,5 @@ fn parse_color(val: &str) -> Result<Color, String> {
             .map_err(|_| format!("invalid blue component '{}'", parts[2].trim()))?,
     ];
 
-    Ok(Color::pixel(pixel))
+    Ok(Color::rgb(pixel[0], pixel[1], pixel[2]))
 }

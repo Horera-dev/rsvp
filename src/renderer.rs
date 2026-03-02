@@ -10,6 +10,8 @@ pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     let chars: Vec<char> = word.chars().collect();
     let orp_index = determine_orp(chars.len());
 
+    println!("word: {}; orp:{}", word, orp_index);
+
     // --- Position glyphs relative to (0,0) ---
     let (glyphs, orp_center_x) = layout_word(word, orp_index, px_scale, &scaled_font);
 
@@ -117,13 +119,10 @@ fn draw_outlined_glyph(
 
         if px < width && py < height {
             let bg = Color::pixel(img.get_pixel(px, py).0);
-
-            // Highlight the ORP in red, others in white
             let color = match is_orp {
-                true => constant::ORP.lerp(bg, coverage),
-                false => constant::WHITE.lerp(bg, coverage),
+                true => bg.lerp(constant::ORP, coverage),
+                false => bg.lerp(constant::WHITE, coverage),
             };
-
             img.put_pixel(px, py, color.to_rgb());
         }
     });
@@ -146,7 +145,7 @@ fn draw_outlined_glyph_colored(
 
         if px < width && py < height {
             let bg = Color::pixel(img.get_pixel(px, py).0);
-            let pixel = color.lerp(bg, coverage);
+            let pixel = bg.lerp(color, coverage);
             img.put_pixel(px, py, pixel.to_rgb());
         }
     });

@@ -27,8 +27,8 @@ darker_color = "#000"
 speed = 2.0
 shrink_height = 3.0
 clockwise = false
-color_slow = "#000"
-color_fast = "#d51a91"
+color_slow = "#3934cf"
+color_fast = "#42c355"
 wpm_min = 100.0
 wpm_max = 600.0
 tint_strength = 0.0    # 0.0 = pure greyscale, 1.0 = full tint color

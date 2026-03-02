@@ -60,7 +60,6 @@ pub fn draw_spiral_fast_with_cache(
             let intensity = spiral_intensity(theta, r, dist_to_edge, config);
             let base = spiral_base_color(intensity, config);
             let color = blend_tint(base, tint, config.tint_strength);
-
             pixel[0] = color.r as u8;
             pixel[1] = color.g as u8;
             pixel[2] = color.b as u8;
@@ -77,13 +76,13 @@ fn spiral_intensity(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettin
 }
 
 fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> Color {
-    config.lighter_color.lerp(config.darker_color, intensity)
+    config.darker_color.lerp(config.lighter_color, intensity)
 }
 
 pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> Color {
     let t = ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0);
     let smooth_t = renderer::smoothstep(t);
-    config.color_slow.lerp(config.color_fast, smooth_t)
+    config.color_fast.lerp(config.color_slow, smooth_t)
 }
 
 fn blend_tint(base: Color, tint: Color, strength: f32) -> Color {
