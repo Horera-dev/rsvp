@@ -13,7 +13,7 @@ use crate::{
     config::Config,
     io, renderer,
     rsvp::generate_random_mask,
-    scheduler::{FrameInstruction, compute_schedule},
+    scheduler::{FrameInstruction, compute_padding, compute_schedule, dump_schedule},
     spiral::{self, SpiralCache, create_spiral_cache},
 };
 
@@ -141,15 +141,25 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
     let spiral_cache = create_spiral_cache(active_config.width, active_config.height);
 
     // Phase 1: figure out what to render
-    let instructions = compute_schedule(config);
-    println!("Schedule computed: {} frames", instructions.len());
+    let mut instructions = compute_schedule(config);
+    let padding = compute_padding(config, instructions.len() as u32);
+    instructions.extend(padding.instructions);
+
+    let mut elapsed = start_time.elapsed();
+    dump_schedule(
+        &instructions,
+        "out/debug_schedule.txt",
+        padding.period,
+        padding.remainder,
+        elapsed,
+    )?;
 
     // Phase 2: render all instructions
     for instruction in instructions.iter() {
         render_instruction(stdin, instruction, config, &spiral_cache, &font)?;
     }
 
-    let elapsed = start_time.elapsed();
+    elapsed = start_time.elapsed();
     let n = instructions.len() as u32;
     println!("--- Performance Report ---");
     println!(

@@ -1,3 +1,5 @@
+use std::{error::Error, io::Write};
+
 use crate::{config::Config, rsvp};
 
 /// A FrameInstruction describes what a single frame should contain,
@@ -69,18 +71,118 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
         }
     }
 
+    instructions
+}
+
+pub struct PaddingInfo {
+    pub instructions: Vec<FrameInstruction>,
+    pub period: u32,
+    pub remainder: u32,
+}
+
+pub fn compute_padding(config: &Config, frame_count: u32) -> PaddingInfo {
     // (TAU * speed * T) / branches = TAU / branches
     // TAU * speed * T = TAU
     // T = 1 / speed     seconds
+    let fps = config.settings.active_format().fps;
     let period = (fps / config.spiral.speed).round() as u32;
     let remainder = period - (frame_count % period);
+    let mut instructions = Vec::new();
 
-    for _ in 0..remainder {
+    for i in 0..remainder {
         instructions.push(FrameInstruction::Padding {
-            time_secs: frame_count as f32 / fps,
+            time_secs: (frame_count + i) as f32 / fps,
         });
-        frame_count += 1;
     }
 
-    instructions
+    PaddingInfo {
+        instructions,
+        period,
+        remainder,
+    }
+}
+
+pub fn dump_schedule(
+    instructions: &[FrameInstruction],
+    path: &str,
+    period: u32,
+    remainder: u32,
+    elapsed: std::time::Duration,
+) -> Result<(), Box<dyn Error>> {
+    let mut file = std::fs::File::create(path)?;
+
+    for (i, instruction) in instructions.iter().enumerate() {
+        let line = match instruction {
+            FrameInstruction::Word {
+                time_secs,
+                word,
+                scale,
+            } => format!(
+                "{:>6} | {:.4}s | WORD  | scale={:.2} | {:?}\n",
+                i, time_secs, scale, word
+            ),
+            FrameInstruction::Mask {
+                time_secs,
+                word_len,
+                scale,
+            } => format!(
+                "{:>6} | {:.4}s | MASK  | scale={:.2} | len={}\n",
+                i, time_secs, scale, word_len
+            ),
+            FrameInstruction::Padding { time_secs } => {
+                format!("{:>6} | {:.4}s | PAD   |\n", i, time_secs)
+            }
+        };
+        file.write_all(line.as_bytes())?;
+    }
+
+    // Summary at the end
+    let words = instructions
+        .iter()
+        .filter(|i| matches!(i, FrameInstruction::Word { .. }))
+        .count();
+    let masks = instructions
+        .iter()
+        .filter(|i| matches!(i, FrameInstruction::Mask { .. }))
+        .count();
+    let pads = instructions
+        .iter()
+        .filter(|i| matches!(i, FrameInstruction::Padding { .. }))
+        .count();
+
+    let n = instructions.len() as u32;
+    let avg = elapsed / n;
+
+    write!(
+        file,
+        "
+--- Schedule ---
+Total frames : {}  |  {} word  |  {} mask  |  {} padding
+Period       : {} frames
+Remainder    : {} frames
+Last time_secs should be a multiple of period: {}
+
+--- Performance ---
+Total   : {:?}
+Avg/frame: {:?}
+Eff. FPS : {:.2}
+",
+        n,
+        words,
+        masks,
+        pads,
+        period,
+        remainder,
+        // quick seamless check: total frames divisible by period?
+        if n % period == 0 {
+            "✓ OK"
+        } else {
+            "✗ NOT a multiple — loop will jump!"
+        },
+        elapsed,
+        avg,
+        1.0 / avg.as_secs_f32(),
+    )?;
+
+    Ok(())
 }
