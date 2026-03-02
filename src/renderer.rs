@@ -1,7 +1,7 @@
-use crate::constant;
 use crate::rsvp::determine_orp;
+use crate::{color::Color, constant};
 use ab_glyph::{Font, FontRef, Glyph, OutlinedGlyph, Point, PxScale, PxScaleFont, ScaleFont};
-use image::{Rgb, RgbImage};
+use image::RgbImage;
 
 pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     // --- Prepare font settings ---
@@ -25,13 +25,7 @@ pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     }
 }
 
-pub fn draw_word_colored(
-    img: &mut RgbImage,
-    word: &str,
-    scale: f32,
-    font: &FontRef,
-    color: [f32; 3],
-) {
+pub fn draw_word_colored(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef, color: Color) {
     // --- Prepare font settings ---
     let px_scale = PxScale::from(scale);
     let scaled_font = font.as_scaled(px_scale);
@@ -122,16 +116,15 @@ fn draw_outlined_glyph(
         let py = (y as f32 + bounds.min.y + y_offset) as u32;
 
         if px < width && py < height {
-            let background_rgb = img.get_pixel(px, py).0;
+            let bg = Color::pixel(img.get_pixel(px, py).0);
 
             // Highlight the ORP in red, others in white
-            let pixel = match is_orp {
-                // true => alpha_blend([255.0, 50.0, 50.0], background_rgb, coverage),
-                true => alpha_blend(constant::ORP, background_rgb, coverage),
-                false => alpha_blend(constant::WHITE, background_rgb, coverage),
+            let color = match is_orp {
+                true => constant::ORP.lerp(bg, coverage),
+                false => constant::WHITE.lerp(bg, coverage),
             };
 
-            img.put_pixel(px, py, pixel);
+            img.put_pixel(px, py, color.to_rgb());
         }
     });
 }
@@ -142,7 +135,7 @@ fn draw_outlined_glyph_colored(
     outlined: OutlinedGlyph,
     x_offset: f32,
     y_offset: f32,
-    color: [f32; 3],
+    color: Color,
 ) {
     let width = img.width();
     let height = img.height();
@@ -152,19 +145,11 @@ fn draw_outlined_glyph_colored(
         let py = (y as f32 + bounds.min.y + y_offset) as u32;
 
         if px < width && py < height {
-            let background_rgb = img.get_pixel(px, py).0;
-            let pixel = alpha_blend(color, background_rgb, coverage);
-            img.put_pixel(px, py, pixel);
+            let bg = Color::pixel(img.get_pixel(px, py).0);
+            let pixel = color.lerp(bg, coverage);
+            img.put_pixel(px, py, pixel.to_rgb());
         }
     });
-}
-
-fn alpha_blend(color: [f32; 3], background: [u8; 3], coverage: f32) -> Rgb<u8> {
-    // Alpha Blending Formula: Result = (Front * Alpha) + (Background * (1 - Alpha))
-    let r = (color[0] * coverage + background[0] as f32 * (1.0 - coverage)) as u8;
-    let g = (color[1] * coverage + background[1] as f32 * (1.0 - coverage)) as u8;
-    let b = (color[2] * coverage + background[2] as f32 * (1.0 - coverage)) as u8;
-    Rgb([r, g, b])
 }
 
 /// Smoothstep easing — feels much more natural than linear lerp for color blending.
@@ -172,17 +157,13 @@ pub fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-pub fn lerp(a: f32, b: f32, lerp_max: f32) -> f32 {
-    a / lerp_max + (b / lerp_max - a / lerp_max)
-}
-
-pub fn wash_to_white(img: &mut RgbImage, amount: f32) {
+pub fn wash_to_background(img: &mut RgbImage, bg: Color, amount: f32) {
     if amount <= 0.0 {
         return;
     } // skip if no wash needed
     img.pixels_mut().for_each(|p| {
-        p[0] = (p[0] as f32 + (255.0 - p[0] as f32) * amount) as u8;
-        p[1] = (p[1] as f32 + (255.0 - p[1] as f32) * amount) as u8;
-        p[2] = (p[2] as f32 + (255.0 - p[2] as f32) * amount) as u8;
+        p[0] = (p[0] as f32 + (bg.r - p[0] as f32) * amount) as u8;
+        p[1] = (p[1] as f32 + (bg.g - p[1] as f32) * amount) as u8;
+        p[2] = (p[2] as f32 + (bg.b - p[2] as f32) * amount) as u8;
     });
 }

@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::color::Color;
+
 #[derive(Deserialize)]
 pub struct Config {
     pub settings: GlobalSettings,
@@ -46,13 +48,13 @@ pub struct SpiralSettings {
     pub branches: f32,
     pub curvature: f32,
     pub smoothness: f32,
-    pub lighter_color: f32,
-    pub darker_color: f32,
+    pub lighter_color: Color,
+    pub darker_color: Color,
     pub speed: f32,
     pub shrink_height: f32,
     pub clockwise: bool,
-    pub color_slow: [f32; 3], // e.g. [210, 210, 210] — light grey
-    pub color_fast: [f32; 3], // e.g. [210, 190, 195] — greyish pink
+    pub color_slow: Color,
+    pub color_fast: Color,
     pub wpm_min: f32,
     pub wpm_max: f32,
     pub tint_strength: f32,
@@ -60,7 +62,8 @@ pub struct SpiralSettings {
 
 #[derive(Copy, Clone, Deserialize)]
 pub struct FlashSettings {
-    pub accent_color: [f32; 3], // word color during flash
+    pub accent_color: Color,
+    pub bg_color: Color,
 }
 
 #[derive(Deserialize)]

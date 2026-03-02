@@ -1,6 +1,9 @@
 // script.rs
 
-use crate::config::{Block, Easing, FlashSettings};
+use crate::{
+    color::Color,
+    config::{Block, Easing, FlashSettings},
+};
 
 #[derive(Debug)]
 pub enum ScriptError {
@@ -146,23 +149,22 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
                     );
                 }
                 "flash" => {
-                    let mut accent_color: [f32; 3] = [255.0, 80.0, 80.0];
-                    // let mut bg_color: [f32; 3] = [255.0, 255.0, 255.0];
+                    let mut accent_color = Color::rgb(255.0, 80.0, 80.0);
+                    let mut bg_color = Color::rgb(255.0, 255.0, 255.0);
 
                     for raw in rest.split_whitespace() {
                         if let Some(val) = raw.strip_prefix("color=") {
                             accent_color = parse_color(val)
                                 .map_err(|e| ScriptError::InvalidFlash(line_no, e))?;
+                        } else if let Some(val) = raw.strip_prefix("bgColor=") {
+                            bg_color = parse_color(val)
+                                .map_err(|e| ScriptError::InvalidFlash(line_no, e))?;
                         }
-                        // else if let Some(val) = raw.strip_prefix("bgColor=") {
-                        //     bg_color = parse_color(val)
-                        //         .map_err(|e| ScriptError::InvalidFlash(line_no, e))?;
-                        // }
                     }
 
                     state.flash = Some(FlashSettings {
                         accent_color,
-                        // bg_color,
+                        bg_color,
                     });
                 }
                 _ => return Err(ScriptError::UnknownDirective(line_no, line.to_string())),
@@ -187,12 +189,12 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
     Ok(blocks)
 }
 
-fn parse_color(val: &str) -> Result<[f32; 3], String> {
+fn parse_color(val: &str) -> Result<Color, String> {
     let parts: Vec<&str> = val.split(',').collect();
     if parts.len() != 3 {
         return Err(format!("expected 3 components, got {}", parts.len()));
     }
-    let color: [f32; 3] = [
+    let pixel: [u8; 3] = [
         parts[0]
             .trim()
             .parse()
@@ -207,5 +209,5 @@ fn parse_color(val: &str) -> Result<[f32; 3], String> {
             .map_err(|_| format!("invalid blue component '{}'", parts[2].trim()))?,
     ];
 
-    Ok(color)
+    Ok(Color::pixel(pixel))
 }

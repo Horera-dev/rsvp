@@ -1,3 +1,6 @@
-pub const WHITE: [f32; 3] = [255.0, 255.0, 255.0];
-pub const ORP: [f32; 3] = [255.0, 136.0, 204.0];
+use crate::color::Color;
+
+pub const WHITE: Color = Color::str(b"#ff88cc");
+// pub const BLACK: Color = Color::str(b"#000000");
+pub const ORP: Color = Color::str(b"#FF88CC");
 pub const MASK_CHARSET: &[u8] = b"@#*&%";

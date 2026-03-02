@@ -11,7 +11,7 @@ use std::f32::consts::TAU;
 use image::RgbImage;
 use rayon::prelude::*;
 
-use crate::{config::SpiralSettings, renderer};
+use crate::{color::Color, config::SpiralSettings, renderer};
 
 pub struct SpiralCache {
     pub distances: Vec<f32>,
@@ -40,7 +40,7 @@ pub fn draw_spiral_fast_with_cache(
     config: &SpiralSettings,
     time_secs: f32,
     cache: &SpiralCache,
-    tint: [f32; 3],
+    tint: Color,
 ) {
     let clockwise_value = if config.clockwise { -1.0 } else { 1.0 };
     //`TAU = 2π` is literally "one full turn", so now:
@@ -60,11 +60,10 @@ pub fn draw_spiral_fast_with_cache(
             let intensity = spiral_intensity(theta, r, dist_to_edge, config);
             let base = spiral_base_color(intensity, config);
             let color = blend_tint(base, tint, config.tint_strength);
-            let rgb = to_pixel(color);
 
-            pixel[0] = rgb[0];
-            pixel[1] = rgb[1];
-            pixel[2] = rgb[2];
+            pixel[0] = color.r as u8;
+            pixel[1] = color.g as u8;
+            pixel[2] = color.b as u8;
         })
 }
 
@@ -77,35 +76,19 @@ fn spiral_intensity(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettin
     renderer::smoothstep(t) * fade // 0.0–1.0
 }
 
-fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> f32 {
-    // Map intensity into the configured light/dark range, normalized
-    let lighter = config.lighter_color / 255.0;
-    let darker = config.darker_color / 255.0;
-    lighter + intensity * (darker - lighter) // 0.0–1.0
+fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> Color {
+    config.lighter_color.lerp(config.darker_color, intensity)
 }
 
-pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> [f32; 3] {
-    let t = renderer::smoothstep(
-        ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0),
-    );
-    [
-        renderer::lerp(config.color_slow[0], config.color_fast[0], 255.0) * t,
-        renderer::lerp(config.color_slow[1], config.color_fast[1], 255.0) * t,
-        renderer::lerp(config.color_slow[2], config.color_fast[2], 255.0) * t,
-    ]
+pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> Color {
+    let t = ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0);
+    let smooth_t = renderer::smoothstep(t);
+    config.color_slow.lerp(config.color_fast, smooth_t)
 }
 
-fn blend_tint(base: f32, tint: [f32; 3], strength: f32) -> [f32; 3] {
-    // intensity-weighted strength: no tint where spiral is dark
-    let effective_strength = strength * base;
-    // Blend from greyscale toward tint color, scaled by strength
-    [
-        base + (tint[0] - base) * effective_strength,
-        base + (tint[1] - base) * effective_strength,
-        base + (tint[2] - base) * effective_strength,
-    ]
-}
-
-fn to_pixel(color: [f32; 3]) -> [u8; 3] {
-    color.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
+fn blend_tint(base: Color, tint: Color, strength: f32) -> Color {
+    // Determine how "bright" the base pixel is to weight the tint
+    let luma = (base.r + base.g + base.b) / (3.0 * 255.0);
+    let effective_strength = strength * luma;
+    base.lerp(tint, effective_strength)
 }

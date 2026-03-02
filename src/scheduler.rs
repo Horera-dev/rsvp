@@ -1,6 +1,9 @@
 use std::{error::Error, io::Write};
 
-use crate::{config::Config, rsvp};
+use crate::{
+    config::{Config, FlashSettings},
+    rsvp,
+};
 
 /// A FrameInstruction describes what a single frame should contain,
 /// without caring at all about how pixels are produced.
@@ -25,7 +28,7 @@ pub enum FrameInstruction {
         time_secs: f32,
         word: String,
         scale: f32,
-        accent_color: [f32; 3],
+        settings: FlashSettings,
         wpm: f32,
     },
     /// Flash fading: white fade to normal black bg + spiral + word on top
@@ -33,7 +36,7 @@ pub enum FrameInstruction {
         time_secs: f32,
         word: String,
         scale: f32,
-        accent_color: [f32; 3],
+        settings: FlashSettings,
         fade_t: f32, // 0.0 = still white, 1.0 = fully back to normal
         wpm: f32,
     },
@@ -76,7 +79,7 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
                         time_secs: frame_count as f32 / fps,
                         word: cleaned.clone(),
                         scale,
-                        accent_color: flash.accent_color,
+                        settings: *flash,
                         wpm,
                     });
                     frame_count += 1;
@@ -89,7 +92,7 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
                         time_secs: frame_count as f32 / fps,
                         word: cleaned.clone(),
                         scale,
-                        accent_color: flash.accent_color,
+                        settings: *flash,
                         fade_t,
                         wpm,
                     });
@@ -184,7 +187,7 @@ pub fn dump_schedule(
                 time_secs,
                 word,
                 scale: _,
-                accent_color: _,
+                settings: _,
                 wpm,
             } => format!(
                 "{:>6} | {:>6.2}s | FLASH      | {:.1}wpm |  {:?} \n",
@@ -194,7 +197,7 @@ pub fn dump_schedule(
                 time_secs,
                 word,
                 scale: _,
-                accent_color: _,
+                settings: _,
                 fade_t: _,
                 wpm,
             } => format!(

@@ -218,24 +218,25 @@ fn render_instruction(
             time_secs,
             word,
             scale,
-            accent_color,
+            settings,
             wpm: _,
         } => {
             draw_spiral(&mut img, *time_secs, 0.0);
-            renderer::wash_to_white(&mut img, 1.0); // instant cut to white
-            renderer::draw_word_colored(&mut img, word, *scale, font, *accent_color);
+            renderer::wash_to_background(&mut img, settings.bg_color, 1.0); // instant cut to white
+            renderer::draw_word_colored(&mut img, word, *scale, font, settings.accent_color);
         }
         FrameInstruction::FlashFade {
             time_secs,
             word,
             scale,
-            accent_color,
+            settings,
             fade_t,
             wpm,
         } => {
             draw_spiral(&mut img, *time_secs, *wpm);
-            renderer::wash_to_white(&mut img, renderer::smoothstep(1.0 - fade_t)); // fades as fade_t → 1.0
-            renderer::draw_word_colored(&mut img, word, *scale, font, *accent_color);
+            let amount = renderer::smoothstep(1.0 - fade_t);
+            renderer::wash_to_background(&mut img, settings.bg_color, amount); // fades as fade_t → 1.0
+            renderer::draw_word_colored(&mut img, word, *scale, font, settings.accent_color);
         }
     }
 

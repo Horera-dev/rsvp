@@ -22,13 +22,13 @@ easing = "linear"
 branches = 6.0
 curvature = 0.10
 smoothness = 0.2
-lighter_color = 0.0
-darker_color = 60.0
+lighter_color = "#444"
+darker_color = "#000"
 speed = 2.0
 shrink_height = 3.0
 clockwise = false
-color_slow = [0.0, 0.0, 0.0]
-color_fast = [210.0, 10.0, 10.0]
+color_slow = "#000"
+color_fast = "#d51a91"
 wpm_min = 100.0
 wpm_max = 600.0
-tint_strength = 0.0              # 0.0 = pure greyscale, 1.0 = full tint color
+tint_strength = 0.0    # 0.0 = pure greyscale, 1.0 = full tint color
