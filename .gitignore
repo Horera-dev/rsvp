@@ -1,5 +1,7 @@
-/target
-out/*
+target
+out
+rsvp
+
 *.png
 *.mp4
 *.gif
