@@ -173,8 +173,7 @@ Eff. FPS : {:.2}
         pads,
         period,
         remainder,
-        // quick seamless check: total frames divisible by period?
-        if n % period == 0 {
+        if n.is_multiple_of(period) {
             "✓ OK"
         } else {
             "✗ NOT a multiple — loop will jump!"
