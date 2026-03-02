@@ -51,6 +51,11 @@ pub struct SpiralSettings {
     pub speed: f32,
     pub shrink_height: f32,
     pub clockwise: bool,
+    pub color_slow: [u8; 3], // e.g. [210, 210, 210] — light grey
+    pub color_fast: [u8; 3], // e.g. [210, 190, 195] — greyish pink
+    pub wpm_min: f32,
+    pub wpm_max: f32,
+    pub tint_strength: f32,
 }
 
 #[derive(Deserialize)]

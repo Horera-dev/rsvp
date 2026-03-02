@@ -11,12 +11,14 @@ pub enum FrameInstruction {
         time_secs: f32,
         word: String, // owned, because the schedule outlives the block loop
         scale: f32,
+        wpm: f32,
     },
     /// A masking frame: draw the spiral + a random mask of this character length.
     Mask {
         time_secs: f32,
         word_len: usize, // we only need the length to generate the mask
         scale: f32,
+        wpm: f32,
     },
     /// A padding frame: draw the spiral only, no text.
     Padding { time_secs: f32 },
@@ -56,6 +58,7 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
                     time_secs: frame_count as f32 / fps,
                     word: cleaned.clone(),
                     scale,
+                    wpm,
                 });
                 frame_count += 1;
             }
@@ -65,6 +68,7 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
                     time_secs: frame_count as f32 / fps,
                     word_len: word.len(),
                     scale,
+                    wpm,
                 });
                 frame_count += 1;
             }
@@ -117,17 +121,19 @@ pub fn dump_schedule(
                 time_secs,
                 word,
                 scale,
+                wpm,
             } => format!(
-                "{:>6} | {:.4}s | WORD  | scale={:.2} | {:?}\n",
-                i, time_secs, scale, word
+                "{:>6} | {:.4}s | WORD  | {:.2}x | {:.1}wpm | {:?} \n",
+                i, time_secs, scale, wpm, word
             ),
             FrameInstruction::Mask {
                 time_secs,
                 word_len,
                 scale,
+                wpm,
             } => format!(
-                "{:>6} | {:.4}s | MASK  | scale={:.2} | len={}\n",
-                i, time_secs, scale, word_len
+                "{:>6} | {:.4}s | MASK  | {:.2}x | {:.1}wpm | len={} \n",
+                i, time_secs, scale, wpm, word_len
             ),
             FrameInstruction::Padding { time_secs } => {
                 format!("{:>6} | {:.4}s | PAD   |\n", i, time_secs)

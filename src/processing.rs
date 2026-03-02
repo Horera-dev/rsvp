@@ -14,7 +14,7 @@ use crate::{
     io, renderer,
     rsvp::generate_random_mask,
     scheduler::{FrameInstruction, compute_padding, compute_schedule, dump_schedule},
-    spiral::{self, SpiralCache, create_spiral_cache},
+    spiral::{self, SpiralCache, create_spiral_cache, wpm_to_tint},
 };
 
 pub fn spawn_ffmpeg_process_gif(
@@ -190,21 +190,44 @@ fn render_instruction(
             time_secs,
             word,
             scale,
+            wpm,
         } => {
-            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            let tint = wpm_to_tint(*wpm, &config.spiral);
+            spiral::draw_spiral_fast_with_cache(
+                &mut img,
+                &config.spiral,
+                *time_secs,
+                spiral_cache,
+                tint,
+            );
             renderer::draw_word(&mut img, word, *scale, font);
         }
         FrameInstruction::Mask {
             time_secs,
             word_len,
             scale,
+            wpm,
         } => {
-            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            let tint = wpm_to_tint(*wpm, &config.spiral);
+            spiral::draw_spiral_fast_with_cache(
+                &mut img,
+                &config.spiral,
+                *time_secs,
+                spiral_cache,
+                tint,
+            );
             let mask = generate_random_mask(*word_len); // randomness lives here
             renderer::draw_word(&mut img, &mask, *scale, font);
         }
         FrameInstruction::Padding { time_secs } => {
-            spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, *time_secs, spiral_cache);
+            let tint = wpm_to_tint(0.0, &config.spiral);
+            spiral::draw_spiral_fast_with_cache(
+                &mut img,
+                &config.spiral,
+                *time_secs,
+                spiral_cache,
+                tint,
+            );
             // no text — spiral only
         }
     }
