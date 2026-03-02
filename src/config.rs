@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct Config {
     pub settings: GlobalSettings,
+    #[serde(default)] // ← treats missing field as Vec::new()
     pub blocks: Vec<Block>,
     pub spiral: SpiralSettings,
 }
@@ -26,8 +27,9 @@ pub struct GlobalSettings {
     pub renderer: RenderMode,
     pub font_path: String,
     pub masking_frames: u32,
-    pub video: FormatSettings, // [settings.video]
-    pub gif: FormatSettings,   // [settings.gif]
+    pub content_path: Option<String>, // path to a .rsvp script file
+    pub video: FormatSettings,        // [settings.video]
+    pub gif: FormatSettings,          // [settings.gif]
 }
 
 #[derive(Deserialize)]

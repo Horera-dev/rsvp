@@ -1,0 +1,25 @@
+# This is a comment
+
+@wpm 400
+@easing instant
+
+Bonjour. Ceci est une visualisation de texte.
+
+@wpm 200->600
+@easing linear
+
+Il permet de lire du texte en ayant une vitesse bien plus rapide.
+Chaque paragraphe devient un block automatiquement.
+
+@wpm 600
+Restes concentré.
+
+
+# lines are comments, ignored
+# @wpm 400 sets both wpm_from and wpm_to to 400
+# @wpm 200->600 sets wpm_from=200, wpm_to=600
+# @easing linear|instant sets easing
+# @scale 80 overrides scale for the next block (optional)
+# A blank line separates blocks
+# Directives before the first text block set the current state, inherited by all following blocks until overridden
+# A directive mid-paragraph applies to the next block, not the current one

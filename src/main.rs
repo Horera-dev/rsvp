@@ -1,5 +1,6 @@
 mod config;
 mod constant;
+mod content_parser;
 mod io;
 mod processing;
 mod renderer;
