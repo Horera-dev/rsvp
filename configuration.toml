@@ -21,9 +21,14 @@ easing = "linear"
 [spiral]
 branches = 6.0
 curvature = 0.10
-smoothness = 0.1
+smoothness = 0.2
 lighter_color = 0.0
-darker_color = 40.0
+darker_color = 60.0
 speed = 1.0
-shrink_height = 2.0
+shrink_height = 3.0
 clockwise = false
+color_slow = [0.0, 0.0, 0.0]
+color_fast = [210.0, 10.0, 10.0]
+wpm_min = 100.0
+wpm_max = 600.0
+tint_strength = 1.0              # 0.0 = pure greyscale, 1.0 = full tint color

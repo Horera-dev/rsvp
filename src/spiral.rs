@@ -1,3 +1,11 @@
+// theta, r  →  [spiral math]  →  intensity: f32 (0.0–1.0)
+//                                      ↓
+// wpm       →  [wpm_to_tint]  →  tint: [f32; 3] (0.0–1.0 per channel)
+//                                      ↓
+//                              [blend_color]  →  [f32; 3]
+//                                      ↓
+//                              [to_pixel]     →  [u8; 3]
+
 use std::f32::consts::TAU;
 
 use image::RgbImage;
@@ -32,7 +40,7 @@ pub fn draw_spiral_fast_with_cache(
     config: &SpiralSettings,
     time_secs: f32,
     cache: &SpiralCache,
-    tint: [u8; 3],
+    tint: [f32; 3],
 ) {
     let clockwise_value = if config.clockwise { -1.0 } else { 1.0 };
     //`TAU = 2π` is literally "one full turn", so now:
@@ -49,8 +57,10 @@ pub fn draw_spiral_fast_with_cache(
         .zip(&cache.angles)
         .for_each(|((pixel, &r), &theta_base)| {
             let theta = theta_base + rotation_offset;
-            let intensity = get_fading_spiral_color(theta, r, dist_to_edge, config) as f32;
-            let rgb = apply_tint_to_color(intensity, tint, config.tint_strength);
+            let intensity = spiral_intensity(theta, r, dist_to_edge, config);
+            let base = spiral_base_color(intensity, config);
+            let color = blend_tint(base, tint, config.tint_strength);
+            let rgb = to_pixel(color);
 
             pixel[0] = rgb[0];
             pixel[1] = rgb[1];
@@ -58,57 +68,52 @@ pub fn draw_spiral_fast_with_cache(
         })
 }
 
-fn get_fading_spiral_color(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettings) -> u8 {
-    // 1. The Spiral Math (cos based)
-    // Shader uses: cos(0.25 * dist + angle + rotation)
-    let spiral_value = (config.curvature * r + theta * config.branches).cos();
-
-    // 2. The Fade Math
-    // percentDistToEdge = clamp(dist / distToEdge, 0.0, 1.0)
-    let percent_dist_to_edge = (r / dist_to_edge).clamp(0.0, 1.0);
-
-    // col = mix(0.0, col, 1.0 - percentDistToEdge)
-    // This multiplier is 1.0 at center, 0.0 at distToEdge
-    let fade_factor = 1.0 - percent_dist_to_edge;
-
-    // 3. Apply Smoothstep and Fade to the color range
-    let t = ((spiral_value + config.smoothness) / (config.smoothness * 2.0)).clamp(0.0, 1.0);
-    let smooth_val = smoothstep(t);
-
-    // Base intensity blended with the fade factor
-    let intensity = smooth_val * fade_factor;
-
-    let color = config.lighter_color + intensity * (config.darker_color - config.lighter_color);
-
-    color as u8
-}
-
 /// Smoothstep easing — feels much more natural than linear lerp for color blending.
 fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> [u8; 3] {
-    let t = ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0);
-    let t = smoothstep(t); // ease the transition
+fn lerp(a: f32, b: f32, lerp_max: f32) -> f32 {
+    a / lerp_max + (b / lerp_max - a / lerp_max)
+}
 
-    let lerp = |a: u8, b: u8| -> u8 { (a as f32 + (b as f32 - a as f32) * t) as u8 };
+// Everything internal works in 0.0–1.0 normalized floats.
+// Only `to_pixel` touches u8.
+fn spiral_intensity(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettings) -> f32 {
+    let spiral_value = (config.curvature * r + theta * config.branches).cos();
+    let fade = 1.0 - (r / dist_to_edge).clamp(0.0, 1.0);
+    let t = ((spiral_value + config.smoothness) / (config.smoothness * 2.0)).clamp(0.0, 1.0);
+    smoothstep(t) * fade // 0.0–1.0
+}
 
+fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> f32 {
+    // Map intensity into the configured light/dark range, normalized
+    let lighter = config.lighter_color / 255.0;
+    let darker = config.darker_color / 255.0;
+    lighter + intensity * (darker - lighter) // 0.0–1.0
+}
+
+pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> [f32; 3] {
+    let t =
+        smoothstep(((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0));
     [
-        lerp(config.color_slow[0], config.color_fast[0]),
-        lerp(config.color_slow[1], config.color_fast[1]),
-        lerp(config.color_slow[2], config.color_fast[2]),
+        lerp(config.color_slow[0], config.color_fast[0], 255.0) * t,
+        lerp(config.color_slow[1], config.color_fast[1], 255.0) * t,
+        lerp(config.color_slow[2], config.color_fast[2], 255.0) * t,
     ]
 }
 
-fn apply_tint_to_color(intensity: f32, tint: [u8; 3], strength: f32) -> [u8; 3] {
-    let i = intensity / 255.0;
+fn blend_tint(base: f32, tint: [f32; 3], strength: f32) -> [f32; 3] {
+    // intensity-weighted strength: no tint where spiral is dark
+    let effective_strength = strength * base;
+    // Blend from greyscale toward tint color, scaled by strength
+    [
+        base + (tint[0] - base) * effective_strength,
+        base + (tint[1] - base) * effective_strength,
+        base + (tint[2] - base) * effective_strength,
+    ]
+}
 
-    // Start from pure greyscale, then blend toward tint
-    let grey = intensity;
-    let r_out = (grey + (tint[0] as f32 - grey) * strength * i) as u8;
-    let g_out = (grey + (tint[1] as f32 - grey) * strength * i) as u8;
-    let b_out = (grey + (tint[2] as f32 - grey) * strength * i) as u8;
-
-    ([r_out, g_out, b_out]) as [u8; 3]
+fn to_pixel(color: [f32; 3]) -> [u8; 3] {
+    color.map(|c| (c.clamp(0.0, 1.0) * 255.0) as u8)
 }

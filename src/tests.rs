@@ -36,7 +36,13 @@ fn draw_basic() -> Result<(), Box<dyn Error>> {
 
     let mut img = RgbImage::new(1920, 1280);
     let spiral_cache = create_spiral_cache(img.width(), img.height());
-    spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, time_secs, &spiral_cache);
+    spiral::draw_spiral_fast_with_cache(
+        &mut img,
+        &config.spiral,
+        time_secs,
+        &spiral_cache,
+        [210.0, 10.0, 10.0],
+    );
     img.save("out/spiral_fast_with_cache.png").unwrap();
 
     Ok(())
@@ -83,7 +89,13 @@ fn benchmark_spiral_fast_with_cache() -> Result<(), Box<dyn Error>> {
     let start = std::time::Instant::now();
     for frame in 0..frames {
         let time_secs = frame as f32 / fps;
-        spiral::draw_spiral_fast_with_cache(&mut img, &config.spiral, time_secs, &spiral_cache);
+        spiral::draw_spiral_fast_with_cache(
+            &mut img,
+            &config.spiral,
+            time_secs,
+            &spiral_cache,
+            [210.0, 10.0, 10.0],
+        );
     }
     println!("{} frames took: {:?}", frames, start.elapsed());
     println!("1 frame took: {:?}", start.elapsed() / frames);
