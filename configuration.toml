@@ -2,7 +2,7 @@
 font_path = "assets/Roboto-Black.ttf"
 renderer = "gif"
 masking_frames = 0
-content_path = "document.rsvp"
+content_path = "rsvp/document.rsvp"
 
 [settings.video]
 width = 1020
