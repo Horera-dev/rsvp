@@ -8,6 +8,7 @@ use crate::{
 /// A FrameInstruction describes what a single frame should contain,
 /// without caring at all about how pixels are produced.
 /// This is pure data — no I/O, no image crate types.
+#[derive(Clone)]
 pub enum FrameInstruction {
     /// A visible word frame: draw the spiral + this word on top.
     Word {

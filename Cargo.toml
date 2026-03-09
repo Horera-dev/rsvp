@@ -7,7 +7,16 @@ edition = "2024"
 ab_glyph = "0.2.32"
 anyhow = "1.0.102"
 rayon = "1.9"
-image = "0.25.9"
+image = { version = "0.25.9", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.0.2"
 rand = "0.8"
+wasm-bindgen = "0.2.114"
+imp = "0.1.0"
+# Add this line specifically:
+getrandom = { version = "0.2", features = ["js"] }
+console_error_panic_hook = "0.1.7"
+web-sys = "0.3.91"
+
+# [lib]
+# crate-type = ["cdylib", "rlib"]

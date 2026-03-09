@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSVP Spiral Visualizer</title>
+    <style>
+        body { 
+            background: #111; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            font-family: sans-serif; 
+        }
+        canvas { 
+            border: 2px solid #444; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background: black;
+        }
+        .controls { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Spiral RSVP</h1>
+    <canvas id="canvas" width="720" height="480"></canvas>
+    
+    <div class="controls">
+        <p id="fps-counter">FPS: ...</p>
+    </div>
+
+    <script type="module">
+        // Import the WASM initializer and your Renderer class
+        import init, { WasmRenderer } from '../pkg/rsvp_generator.js';
+
+        async function start() {
+            // Initialize the WASM module
+            const wasm = await init();
+            
+            const width = 720;
+            const height = 480;
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const fpsDisplay = document.getElementById('fps-counter');
+
+            const fontResp = await fetch('/assets/Roboto-Black.ttf');
+            const fontBuffer = await fontResp.arrayBuffer();
+            const configToml = await fetch('/configuration.toml');
+            const configText = await configToml.text();
+
+            console.log(configText)
+            console.log("Font size:", fontBuffer.byteLength);
+            console.log("Config string length:", configText.length);
+
+            const renderer = new WasmRenderer(width, height, new Uint8Array(fontBuffer), configText);
+
+            let lastTime = 0;
+            function renderLoop(timestamp) {
+                const dt = timestamp - lastTime;
+                lastTime = timestamp;
+                fpsDisplay.innerText = `FPS: ${Math.round(1000 / dt)}`;
+
+                // 1. Call Rust to draw the frame
+                // We pass the timestamp in seconds
+                const ptr = renderer.render(timestamp / 1000);
+
+                // 2. Wrap the WASM memory buffer in a JS view
+                // wasm.memory.buffer is the raw RAM of your Rust app
+                const pixelData = new Uint8ClampedArray(
+                    wasm.memory.buffer, 
+                    ptr, 
+                    width * height * 4
+                );
+
+                // 3. Push the pixels to the screen
+                const imageData = new ImageData(pixelData, width, height);
+                ctx.putImageData(imageData, 0, 0);
+
+                requestAnimationFrame(renderLoop);
+            }
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        start();
+    </script>
+</body>
+</html>

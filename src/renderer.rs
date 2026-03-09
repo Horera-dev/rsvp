@@ -10,8 +10,6 @@ pub fn draw_word(img: &mut RgbImage, word: &str, scale: f32, font: &FontRef) {
     let chars: Vec<char> = word.chars().collect();
     let orp_index = determine_orp(chars.len());
 
-    println!("word: {}; orp:{}", word, orp_index);
-
     // --- Position glyphs relative to (0,0) ---
     let (glyphs, orp_center_x) = layout_word(word, orp_index, px_scale, &scaled_font);
 

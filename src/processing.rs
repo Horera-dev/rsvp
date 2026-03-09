@@ -5,7 +5,7 @@ use std::{
     time::Instant,
 };
 
-use ab_glyph::FontRef;
+use ab_glyph::{Font, FontRef};
 use anyhow::Context;
 use image::RgbImage;
 
@@ -156,7 +156,8 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
 
     // Phase 2: render all instructions
     for instruction in instructions.iter() {
-        render_instruction(stdin, instruction, config, &spiral_cache, &font)?;
+        let img = render_instruction(instruction, config, &spiral_cache, &font).unwrap();
+        stdin.write_all(&img.into_raw())?;
     }
 
     elapsed = start_time.elapsed();
@@ -174,16 +175,30 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
     Ok(())
 }
 
-fn render_instruction(
-    stdin: &mut ChildStdin,
+// use wasm_bindgen::prelude::*;
+// #[wasm_bindgen]
+// extern "C" {
+//     #[wasm_bindgen(js_namespace = console)]
+//     fn log(s: &str);
+// }
+
+// macro_rules! console_log {
+//     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+// }
+
+pub fn render_instruction(
     instruction: &FrameInstruction,
     config: &Config,
     spiral_cache: &SpiralCache,
     font: &FontRef,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, Box<dyn Error>> {
     let active = config.settings.active_format();
 
-    let mut img = RgbImage::new(active.width, active.height);
+    // let test_glyph = font.glyph_id('C').with_scale(48.0);
+    // console_log!("Font Loaded! 'A' glyph id: {:?}", test_glyph);
+
+    let mut img: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> =
+        RgbImage::new(active.width, active.height);
 
     // Every frame has a spiral — only the tint and overlay differ
     let draw_spiral = |img: &mut RgbImage, time_secs: f32, wpm: f32| {
@@ -240,7 +255,5 @@ fn render_instruction(
         }
     }
 
-    stdin.write_all(&img.into_raw())?;
-
-    Ok(())
+    Ok(img)
 }
