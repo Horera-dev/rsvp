@@ -1,4 +1,5 @@
 use std::f32::consts::TAU;
+use std::time::Instant;
 
 use crate::scheduler::AudioInstruction;
 use crate::utils;
@@ -83,51 +84,27 @@ impl BinauralGen {
     }
 }
 
-/// Write interleaved f32 stereo samples as a valid WAV file.
-pub fn write_wav(path: &Path, samples: &[f32], sample_rate: u32) -> Result<(), Box<dyn Error>> {
+pub fn generate_and_write_wav(
+    path: &Path,
+    instructions: &[AudioInstruction],
+    fps: f32,
+    sample_rate: u32,
+) -> Result<(), Box<dyn Error>> {
+    // We need to know the total size upfront for the WAV header
+    let samples_per_frame = (sample_rate as f32 / fps).round() as usize;
+    let total_samples = instructions.len() * samples_per_frame * 2; // stereo
+    let data_size = (total_samples * 4) as u32; // 4 bytes per f32
+    let start = Instant::now();
+
     let mut file = std::fs::File::create(path)?;
+    write_wav_header(&mut file, sample_rate, data_size)?;
 
-    let num_channels = 2u16;
-    let bits_per_sample = 32u16;
-    let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample as u32 / 8);
-    let block_align = num_channels * (bits_per_sample / 8);
-    let data_size = (samples.len() * 4) as u32; // 4 bytes per f32
-    let chunk_size = 36 + data_size;
-
-    // RIFF header
-    file.write_all(b"RIFF")?;
-    file.write_all(&chunk_size.to_le_bytes())?;
-    file.write_all(b"WAVE")?;
-
-    // fmt chunk — IEEE float PCM (format 3)
-    file.write_all(b"fmt ")?;
-    file.write_all(&16u32.to_le_bytes())?; // chunk size
-    file.write_all(&3u16.to_le_bytes())?; // format: IEEE float
-    file.write_all(&num_channels.to_le_bytes())?;
-    file.write_all(&sample_rate.to_le_bytes())?;
-    file.write_all(&byte_rate.to_le_bytes())?;
-    file.write_all(&block_align.to_le_bytes())?;
-    file.write_all(&bits_per_sample.to_le_bytes())?;
-
-    // data chunk
-    file.write_all(b"data")?;
-    file.write_all(&data_size.to_le_bytes())?;
-    for sample in samples {
-        file.write_all(&sample.to_le_bytes())?;
-    }
-
-    Ok(())
-}
-
-pub fn generate_audio(instructions: &[AudioInstruction], fps: f32, sample_rate: u32) -> Vec<f32> {
+    // Generate and write frame by frame — no giant Vec
     let mut generator = BinauralGen::new(sample_rate);
-    let mut samples = Vec::new();
-
     for instruction in instructions {
-        let frame_samples = match instruction {
+        let frame = match instruction {
             AudioInstruction::Silence => {
-                let n = (sample_rate as f32 / fps).round() as usize;
-                vec![0.0f32; n * 2]
+                vec![0.0f32; samples_per_frame * 2]
             }
             AudioInstruction::Binaural(settings) => generator.generate_frame(settings, fps),
             AudioInstruction::CrossFade { from, to, t } => {
@@ -141,10 +118,43 @@ pub fn generate_audio(instructions: &[AudioInstruction], fps: f32, sample_rate: 
             }
         };
 
-        samples.extend(frame_samples);
+        for sample in &frame {
+            file.write_all(&sample.to_le_bytes())?;
+        }
     }
 
-    samples
+    let elapsed = start.elapsed();
+    println!("Total: {:?}", elapsed);
+
+    Ok(())
+}
+
+fn write_wav_header(
+    file: &mut std::fs::File,
+    sample_rate: u32,
+    data_size: u32,
+) -> Result<(), Box<dyn Error>> {
+    let num_channels = 2u16;
+    let bits_per_sample = 32u16;
+    let byte_rate = sample_rate * num_channels as u32 * (bits_per_sample as u32 / 8);
+    let block_align = num_channels * (bits_per_sample / 8);
+    let chunk_size = 36 + data_size;
+
+    file.write_all(b"RIFF")?;
+    file.write_all(&chunk_size.to_le_bytes())?;
+    file.write_all(b"WAVE")?;
+    file.write_all(b"fmt ")?;
+    file.write_all(&16u32.to_le_bytes())?;
+    file.write_all(&3u16.to_le_bytes())?; // IEEE float
+    file.write_all(&num_channels.to_le_bytes())?;
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&byte_rate.to_le_bytes())?;
+    file.write_all(&block_align.to_le_bytes())?;
+    file.write_all(&bits_per_sample.to_le_bytes())?;
+    file.write_all(b"data")?;
+    file.write_all(&data_size.to_le_bytes())?;
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ use anyhow::Context;
 use image::RgbImage;
 
 use crate::{
-    audio::{generate_audio, write_wav},
+    audio::generate_and_write_wav,
     config::Config,
     io, renderer,
     rsvp::generate_random_mask,
@@ -107,17 +107,12 @@ pub fn spawn_ffmpeg_process_video(
     render_logic: impl FnOnce(&mut ChildStdin, &Schedule) -> Result<(), Box<dyn Error>>,
 ) -> Result<(), Box<dyn Error>> {
     let active_config = config.settings.active_format();
-    let sample_rate = 44100u32;
+    let sample_rate = config.settings.binaural.sample_rate;
 
-    // Step 1: generate and write audio to temp file
+    // Generate audio before spawning ffmpeg
     let audio_path = std::path::Path::new("out/rsvp_audio.wav");
-    let samples = generate_audio(&schedule.audio, active_config.fps, sample_rate);
-    write_wav(audio_path, &samples, sample_rate)?;
-    println!(
-        "Audio written to {:?} ({} samples)",
-        audio_path,
-        samples.len()
-    );
+    generate_and_write_wav(audio_path, &schedule.audio, active_config.fps, sample_rate)?;
+    println!("Audio written to {:?} ", audio_path);
 
     let mut child = Command::new("ffmpeg")
         .args([
@@ -139,12 +134,20 @@ pub fn spawn_ffmpeg_process_video(
             audio_path.to_str().unwrap(),
             // output
             "-c:v",
-            "libx264",
+            "libx265",
+            "-crf",
+            "28", // try 28-32, spiral compression artifacts are barely visible
+            "-preset",
+            "slow", // slower encode = better compression, same quality
             "-c:a",
             "aac",
+            "-b:a",
+            "64k", // half the default, tones are simple signals
             "-pix_fmt",
             "yuv420p",
             "-shortest",
+            "-movflags",
+            "+faststart", // moves metadata to front — better for download/streaming
             "out/output.mp4",
         ])
         .stdin(Stdio::piped())

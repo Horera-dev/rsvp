@@ -71,6 +71,9 @@ pub struct FlashSettings {
 pub struct BinauralConfig {
     #[serde(default = "default_fade_secs")]
     pub fade_secs: f32,
+
+    // pub enabled: bool,
+    pub sample_rate: u32,
 }
 
 #[derive(Deserialize)]
