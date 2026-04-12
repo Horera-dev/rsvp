@@ -1,8 +1,8 @@
 [settings]
 font_path = "assets/Roboto-Black.ttf"
-renderer = "gif"
+renderer = "video"
 masking_frames = 0
-content_path = "rsvp/licorne.rsvp"
+content_path = "rsvp/pink.rsvp"
 
 [settings.video]
 width = 1020

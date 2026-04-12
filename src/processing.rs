@@ -5,7 +5,7 @@ use std::{
     time::Instant,
 };
 
-use ab_glyph::{Font, FontRef};
+use ab_glyph::FontRef;
 use anyhow::Context;
 use image::RgbImage;
 

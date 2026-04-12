@@ -6,8 +6,8 @@ pub fn determine_orp(words_len: usize) -> usize {
     match words_len {
         0..=1 => 0,
         2..=5 => 1,
-        6..=9 => 2,
-        10..13 => 3,
+        6..=8 => 2,
+        9..13 => 3,
         _ => 4,
     }
 }
