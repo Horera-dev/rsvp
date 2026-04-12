@@ -1,8 +1,9 @@
 use std::{error::Error, io::Write};
 
 use crate::{
+    audio::BinauralSettings,
     config::{Config, FlashSettings},
-    rsvp,
+    rsvp, utils,
 };
 
 /// A FrameInstruction describes what a single frame should contain,
@@ -45,18 +46,81 @@ pub enum FrameInstruction {
     Padding { time_secs: f32 },
 }
 
-pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
+/// A AudioInstruction describes what a what the audio should
+/// be at the moment.
+/// This is pure data — no I/O, no sound types.
+#[derive(Clone)]
+pub enum AudioInstruction {
+    Binaural(BinauralSettings),
+    /// Crossfade between two settings — t goes 0.0 → 1.0
+    CrossFade {
+        from: BinauralSettings,
+        to: BinauralSettings,
+        t: f32,
+    },
+    Silence,
+}
+pub struct Schedule {
+    pub video: Vec<FrameInstruction>,
+    pub audio: Vec<AudioInstruction>,
+}
+
+pub fn compute_schedule(config: &Config) -> Schedule {
     let active = config.settings.active_format();
     let fps = active.fps;
 
-    let mut instructions = Vec::new();
+    let mut video: Vec<FrameInstruction> = Vec::new();
+    let mut audio: Vec<AudioInstruction> = Vec::new();
     let mut frame_count: u32 = 0;
+
+    // Track binaural state across blocks to detect changes
+    let mut current_binaural: Option<BinauralSettings> = None;
 
     for block in &config.blocks {
         let words: Vec<&str> = block.text.split_whitespace().collect();
         let scale = block.get_scale(active.scale);
         let easing = block.get_easing(active.easing.clone());
         let mut frac_buffer: f32 = 0.0;
+
+        // Detect binaural change at block boundary
+        let binaural_changed = match (&current_binaural, &block.binaural) {
+            (None, None) => false,
+            (Some(_), None) => true, // turned off
+            (None, Some(_)) => true, // turned on
+            (Some(old), Some(new)) =>
+            // changed values
+            {
+                (old.carrier_hz - new.carrier_hz).abs() > 0.01
+                    || (old.beat_hz - new.beat_hz).abs() > 0.01
+            }
+        };
+
+        // If binaural changed, emit crossfade frames before this block's words
+        if binaural_changed {
+            let fade_frames = (config.settings.binaural.fade_secs * fps).round() as u32;
+            let from = current_binaural.clone().unwrap_or(BinauralSettings {
+                volume: 0.0,
+                ..BinauralSettings::theta()
+            });
+            let to = block.binaural.clone().unwrap_or(BinauralSettings {
+                volume: 0.0,
+                ..BinauralSettings::theta()
+            });
+
+            for i in 0..fade_frames {
+                let t = utils::smoothstep(i as f32 / fade_frames as f32);
+                audio.push(AudioInstruction::CrossFade {
+                    from: from.clone(),
+                    to: to.clone(),
+                    t,
+                });
+                // Crossfade runs in parallel with video — no extra video frames
+                // We don't increment frame_count here, crossfade overlaps
+                // with the first N frames of this block
+            }
+
+            current_binaural = block.binaural.clone();
+        }
 
         for (i, word) in words.iter().enumerate() {
             let progress = rsvp::compute_progress(words.len(), i);
@@ -66,6 +130,7 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
             let total_raw = weighted + frac_buffer;
             let frames = total_raw.round();
             frac_buffer = total_raw - frames;
+
             if frames < 1.0 {
                 continue;
             }
@@ -76,20 +141,21 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
             if let Some(flash) = &block.flash {
                 // Phase 1: x frames of flashing white
                 for _ in 0..word_frames {
-                    instructions.push(FrameInstruction::FlashWhite {
+                    video.push(FrameInstruction::FlashWhite {
                         time_secs: frame_count as f32 / fps,
                         word: cleaned.clone(),
                         scale,
                         settings: *flash,
                         wpm,
                     });
+                    audio.push(audio_for_frame(&current_binaural));
                     frame_count += 1;
                 }
 
                 // Phase 2: fade frames — spiral emerges through white
                 for i in 0..word_frames {
                     let fade_t = (i + 1) as f32 / frames; // 0.0 → 1.0
-                    instructions.push(FrameInstruction::FlashFade {
+                    video.push(FrameInstruction::FlashFade {
                         time_secs: frame_count as f32 / fps,
                         word: cleaned.clone(),
                         scale,
@@ -97,34 +163,47 @@ pub fn compute_schedule(config: &Config) -> Vec<FrameInstruction> {
                         fade_t,
                         wpm,
                     });
+                    audio.push(audio_for_frame(&current_binaural));
                     frame_count += 1;
                 }
             } else {
                 // Push one instruction per frame — no rendering here, just description
                 for _ in 0..word_frames {
-                    instructions.push(FrameInstruction::Word {
+                    video.push(FrameInstruction::Word {
                         time_secs: frame_count as f32 / fps,
                         word: cleaned.clone(),
                         scale,
                         wpm,
                     });
+                    audio.push(audio_for_frame(&current_binaural));
                     frame_count += 1;
                 }
 
                 for _ in 0..config.settings.masking_frames {
-                    instructions.push(FrameInstruction::Mask {
+                    video.push(FrameInstruction::Mask {
                         time_secs: frame_count as f32 / fps,
                         word_len: word.len(),
                         scale,
                         wpm,
                     });
+                    audio.push(audio_for_frame(&current_binaural));
                     frame_count += 1;
                 }
             }
         }
     }
 
-    instructions
+    // pad audio to match — padding frames have whatever binaural state was last
+
+    let padding = compute_padding(config, frame_count);
+    let pad_count = padding.instructions.len() as u32;
+    video.extend(padding.instructions);
+
+    for _ in 0..pad_count {
+        audio.push(audio_for_frame(&None)); // spiral-only padding = silence or last state
+    }
+
+    Schedule { video, audio }
 }
 
 pub struct PaddingInfo {
@@ -260,4 +339,12 @@ Eff. FPS : {:.2}
     )?;
 
     Ok(())
+}
+
+/// Convert current binaural state into an AudioInstruction for one frame.
+pub fn audio_for_frame(binaural: &Option<BinauralSettings>) -> AudioInstruction {
+    match binaural {
+        Some(settings) => AudioInstruction::Binaural(settings.clone()),
+        None => AudioInstruction::Silence,
+    }
 }

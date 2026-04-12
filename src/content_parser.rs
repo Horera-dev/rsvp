@@ -1,6 +1,7 @@
 // script.rs
 
 use crate::{
+    audio::BinauralSettings,
     color::Color,
     config::{Block, Easing, FlashSettings},
 };
@@ -13,6 +14,7 @@ pub enum ScriptError {
     InvalidScale(usize, String),
     NoWpmDefined(usize), // a block has no wpm at all
     InvalidFlash(usize, String),
+    ParseError(usize, String), // ← add this
 }
 
 impl std::fmt::Display for ScriptError {
@@ -32,6 +34,7 @@ impl std::fmt::Display for ScriptError {
             ScriptError::InvalidFlash(l, s) => {
                 write!(f, "Line {}: invalid @flash defined: '{}'", l, s)
             }
+            ScriptError::ParseError(l, s) => write!(f, "Line {}: {}", l, s),
         }
     }
 }
@@ -46,6 +49,7 @@ struct State {
     easing: Option<Easing>,
     scale: Option<f32>,
     flash: Option<FlashSettings>,
+    binaural: Option<BinauralSettings>, // ← new, persists until @binaural off
 }
 
 impl State {
@@ -56,6 +60,7 @@ impl State {
             easing: None,
             scale: None,
             flash: None,
+            binaural: None,
         }
     }
 }
@@ -88,6 +93,7 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
             easing: state.easing.clone(),
             scale: state.scale,
             flash: state.flash,
+            binaural: state.binaural.clone(), // persists
         });
 
         text_buf.clear();
@@ -167,6 +173,40 @@ pub fn parse_script(source: &str) -> Result<Vec<Block>, ScriptError> {
                         bg_color,
                     });
                 }
+                "binaural" => {
+                    // @binaural off
+                    if rest == "off" {
+                        state.binaural = None;
+                        continue;
+                    }
+
+                    // @binaural carrier=200 beat=7 drone=180 volume=0.4
+                    // All fields are optional — fall back to theta preset defaults
+                    let mut settings = BinauralSettings::theta();
+
+                    for token in rest.split_whitespace() {
+                        if let Some(val) = token.strip_prefix("carrier=") {
+                            settings.carrier_hz = parse_float(val)
+                                .map_err(|e| ScriptError::ParseError(line_no, e))?;
+                        } else if let Some(val) = token.strip_prefix("beat=") {
+                            settings.beat_hz = parse_float(val)
+                                .map_err(|e| ScriptError::ParseError(line_no, e))?;
+                        } else if let Some(val) = token.strip_prefix("drone=") {
+                            settings.drone_hz = parse_float(val)
+                                .map_err(|e| ScriptError::ParseError(line_no, e))?;
+                        } else if let Some(val) = token.strip_prefix("volume=") {
+                            settings.volume = parse_float(val)
+                                .map_err(|e| ScriptError::ParseError(line_no, e))?;
+                        } else {
+                            return Err(ScriptError::ParseError(
+                                line_no,
+                                format!("unknown @binaural parameter '{}'", token),
+                            ));
+                        }
+                    }
+
+                    state.binaural = Some(settings);
+                }
                 _ => return Err(ScriptError::UnknownDirective(line_no, line.to_string())),
             }
 
@@ -210,4 +250,10 @@ fn parse_color(val: &str) -> Result<Color, String> {
     ];
 
     Ok(Color::rgb(pixel[0], pixel[1], pixel[2]))
+}
+
+fn parse_float(val: &str) -> Result<f32, String> {
+    val.trim()
+        .parse::<f32>()
+        .map_err(|_| format!("'{}' is not a valid number", val.trim()))
 }

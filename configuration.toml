@@ -2,7 +2,7 @@
 font_path = "assets/Roboto-Black.ttf"
 renderer = "video"
 masking_frames = 0
-content_path = "rsvp/pink.rsvp"
+content_path = "rsvp/lena.rsvp"
 
 [settings.video]
 width = 1020
@@ -32,3 +32,9 @@ color_fast = "#42c355"
 wpm_min = 100.0
 wpm_max = 600.0
 tint_strength = 0.0    # 0.0 = pure greyscale, 1.0 = full tint color
+
+[settings.binaural]
+enabled = true
+sample_rate = 44100
+drone_volume = 0.3  # relative volume of drone vs binaural tones
+fade_secs = 2.0     # crossfade duration when switching frequencies

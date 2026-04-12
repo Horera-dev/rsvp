@@ -10,16 +10,22 @@ use anyhow::Context;
 use image::RgbImage;
 
 use crate::{
+    audio::{generate_audio, write_wav},
     config::Config,
     io, renderer,
     rsvp::generate_random_mask,
-    scheduler::{FrameInstruction, compute_padding, compute_schedule, dump_schedule},
+    scheduler::{
+        AudioInstruction, FrameInstruction, Schedule, compute_padding, compute_schedule,
+        dump_schedule,
+    },
     spiral::{self, SpiralCache, create_spiral_cache, wpm_to_tint},
+    utils,
 };
 
 pub fn spawn_ffmpeg_process_gif(
     config: &Config,
-    render_logic: impl FnOnce(&mut ChildStdin) -> Result<(), Box<dyn Error>>,
+    schedule: &Schedule,
+    render_logic: impl FnOnce(&mut ChildStdin, &Schedule) -> Result<(), Box<dyn Error>>,
 ) -> Result<(), Box<dyn Error>> {
     // 1. First Pass: Save raw data to a temporary high-quality mkv (lossless)
     // This is much faster than encoding a GIF directly.
@@ -49,7 +55,7 @@ pub fn spawn_ffmpeg_process_gif(
         .spawn()?;
 
     let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-    render_logic(&mut stdin)?; // Run your word-loop here
+    render_logic(&mut stdin, schedule)?; // Run your word-loop here
     drop(stdin);
     child.wait()?;
 
@@ -97,12 +103,28 @@ pub fn spawn_ffmpeg_process_gif(
 
 pub fn spawn_ffmpeg_process_video(
     config: &Config,
-    render_logic: impl FnOnce(&mut ChildStdin) -> Result<(), Box<dyn Error>>,
+    schedule: &Schedule,
+    render_logic: impl FnOnce(&mut ChildStdin, &Schedule) -> Result<(), Box<dyn Error>>,
 ) -> Result<(), Box<dyn Error>> {
     let active_config = config.settings.active_format();
+    let sample_rate = 44100u32;
+
+    // Step 1: generate and write audio to temp file
+    let audio_path = std::path::Path::new("out/rsvp_audio.wav");
+    let samples = generate_audio(&schedule.audio, active_config.fps, sample_rate);
+    write_wav(audio_path, &samples, sample_rate)?;
+    println!(
+        "Audio written to {:?} ({} samples)",
+        audio_path,
+        samples.len()
+    );
+
     let mut child = Command::new("ffmpeg")
         .args([
             "-y",
+            "-thread_queue_size",
+            "512",
+            // video input from stdin pipe
             "-f",
             "rawvideo",
             "-pixel_format",
@@ -112,57 +134,77 @@ pub fn spawn_ffmpeg_process_video(
             "-framerate",
             &active_config.fps.to_string(),
             "-i",
-            "-",
+            "pipe:0",
+            "-i",
+            audio_path.to_str().unwrap(),
+            // output
             "-c:v",
             "libx264",
+            "-c:a",
+            "aac",
             "-pix_fmt",
             "yuv420p",
+            "-shortest",
             "out/output.mp4",
         ])
         .stdin(Stdio::piped())
         .spawn()?;
 
     let mut stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-    render_logic(&mut stdin)?; // Run your word-loop here
+    render_logic(&mut stdin, schedule)?;
 
     drop(stdin);
     child.wait()?;
 
+    std::fs::remove_file(audio_path).ok();
     println!("Video generated successfully.");
+
     Ok(())
 }
 
-pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box<dyn Error>> {
+/// Phase 1: pure computation, no I/O
+pub fn build_schedule(config: &Config) -> Schedule {
+    let mut schedule = compute_schedule(config);
+    let padding = compute_padding(config, schedule.video.len() as u32);
+    schedule.video.extend(padding.instructions);
+    // pad audio to match
+    for _ in 0..padding.remainder {
+        schedule.audio.push(AudioInstruction::Silence);
+    }
+    schedule
+}
+
+/// Phase 2: pure rendering, no schedule logic
+pub fn render_all(
+    stdin: &mut ChildStdin,
+    schedule: &Schedule,
+    config: &Config,
+) -> Result<(), Box<dyn Error>> {
     let font_data = io::load_font_data(config)?;
-    let font: FontRef = FontRef::try_from_slice(&font_data)
-        .with_context(|| "Font file loaded but corrupted. Or not a valid font file.")?;
-    let start_time = Instant::now(); // Start the stopwatch
-    let active_config = config.settings.active_format();
-    let spiral_cache = create_spiral_cache(active_config.width, active_config.height);
+    let font = FontRef::try_from_slice(&font_data)
+        .context("Font file loaded but corrupted or invalid.")?;
+    let active = config.settings.active_format();
+    let spiral_cache = create_spiral_cache(active.width, active.height);
+    let start = Instant::now();
 
-    // Phase 1: figure out what to render
-    let mut instructions = compute_schedule(config);
-    let padding = compute_padding(config, instructions.len() as u32);
-    instructions.extend(padding.instructions);
+    let padding = compute_padding(config, schedule.video.len() as u32);
 
-    let mut elapsed = start_time.elapsed();
+    let mut elapsed = start.elapsed();
     dump_schedule(
-        &instructions,
+        &schedule.video,
         "out/debug_schedule.txt",
         padding.period,
         padding.remainder,
         elapsed,
     )?;
 
-    // Phase 2: render all instructions
-    for instruction in instructions.iter() {
-        let img = render_instruction(instruction, config, &spiral_cache, &font).unwrap();
+    for instruction in &schedule.video {
+        let img = render_instruction(instruction, config, &spiral_cache, &font)?;
         stdin.write_all(&img.into_raw())?;
     }
 
-    elapsed = start_time.elapsed();
-    let n = instructions.len() as u32;
-    println!("--- Performance Report ---");
+    elapsed = start.elapsed();
+    let n = schedule.video.len() as u32;
     println!(
         "Total: {:?} | Frames: {} | Avg: {:?} | FPS: {:.2}",
         elapsed,
@@ -170,21 +212,8 @@ pub fn process_blocks(stdin: &mut ChildStdin, config: &Config) -> Result<(), Box
         elapsed / n,
         1.0 / (elapsed / n).as_secs_f32()
     );
-    println!("--- End of Performance Report ---");
-
     Ok(())
 }
-
-// use wasm_bindgen::prelude::*;
-// #[wasm_bindgen]
-// extern "C" {
-//     #[wasm_bindgen(js_namespace = console)]
-//     fn log(s: &str);
-// }
-
-// macro_rules! console_log {
-//     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
-// }
 
 pub fn render_instruction(
     instruction: &FrameInstruction,
@@ -249,7 +278,7 @@ pub fn render_instruction(
             wpm,
         } => {
             draw_spiral(&mut img, *time_secs, *wpm);
-            let amount = renderer::smoothstep(1.0 - fade_t);
+            let amount = utils::smoothstep(1.0 - fade_t);
             renderer::wash_to_background(&mut img, settings.bg_color, amount); // fades as fade_t → 1.0
             renderer::draw_word_colored(&mut img, word, *scale, font, settings.accent_color);
         }

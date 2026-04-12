@@ -149,11 +149,6 @@ fn draw_outlined_glyph_colored(
     });
 }
 
-/// Smoothstep easing — feels much more natural than linear lerp for color blending.
-pub fn smoothstep(t: f32) -> f32 {
-    t * t * (3.0 - 2.0 * t)
-}
-
 pub fn wash_to_background(img: &mut RgbImage, bg: Color, amount: f32) {
     if amount <= 0.0 {
         return;

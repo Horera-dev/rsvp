@@ -11,7 +11,7 @@ use std::f32::consts::TAU;
 use image::RgbImage;
 use rayon::prelude::*;
 
-use crate::{color::Color, config::SpiralSettings, renderer};
+use crate::{color::Color, config::SpiralSettings, utils};
 
 pub struct SpiralCache {
     pub distances: Vec<f32>,
@@ -72,7 +72,7 @@ fn spiral_intensity(theta: f32, r: f32, dist_to_edge: f32, config: &SpiralSettin
     let spiral_value = (config.curvature * r + theta * config.branches).cos();
     let fade = 1.0 - (r / dist_to_edge).clamp(0.0, 1.0);
     let t = ((spiral_value + config.smoothness) / (config.smoothness * 2.0)).clamp(0.0, 1.0);
-    renderer::smoothstep(t) * fade // 0.0–1.0
+    utils::smoothstep(t) * fade // 0.0–1.0
 }
 
 fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> Color {
@@ -81,7 +81,7 @@ fn spiral_base_color(intensity: f32, config: &SpiralSettings) -> Color {
 
 pub fn wpm_to_tint(wpm: f32, config: &SpiralSettings) -> Color {
     let t = ((wpm - config.wpm_min) / (config.wpm_max - config.wpm_min)).clamp(0.0, 1.0);
-    let smooth_t = renderer::smoothstep(t);
+    let smooth_t = utils::smoothstep(t);
     config.color_fast.lerp(config.color_slow, smooth_t)
 }
 

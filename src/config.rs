@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::color::Color;
+use crate::{audio::BinauralSettings, color::Color};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -32,6 +32,7 @@ pub struct GlobalSettings {
     pub content_path: Option<String>, // path to a .rsvp script file
     pub video: FormatSettings,        // [settings.video]
     pub gif: FormatSettings,          // [settings.gif]
+    pub binaural: BinauralConfig,
 }
 
 #[derive(Deserialize)]
@@ -67,6 +68,12 @@ pub struct FlashSettings {
 }
 
 #[derive(Deserialize)]
+pub struct BinauralConfig {
+    #[serde(default = "default_fade_secs")]
+    pub fade_secs: f32,
+}
+
+#[derive(Deserialize)]
 pub struct Block {
     pub text: String,
 
@@ -78,10 +85,15 @@ pub struct Block {
     pub easing: Option<Easing>,
     pub scale: Option<f32>,
     pub flash: Option<FlashSettings>,
+    pub binaural: Option<BinauralSettings>, // ← new, persists until @binaural off
 }
 
 fn default_float() -> f32 {
     0.0
+}
+
+fn default_fade_secs() -> f32 {
+    2.0
 }
 
 impl Block {

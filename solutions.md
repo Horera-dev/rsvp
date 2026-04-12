@@ -73,3 +73,16 @@ pub fn draw_word_to_frame(word: &str, width: u32, height: u32, font: &FontRef) -
 `libavutil` is the base utility library for FFmpeg. It handles pixel format definitions and memory management. Without it, the Rust bindings don't even know what an "RGB24" pixel looks like at the C level.
 
 **Once you have the libraries installed and `cargo build` succeeds, would you like to add a "Seek Bar" at the bottom of the video so the viewer knows how much of the phrase is left?**
+
+
+### The audio pipeline
+
+BinauralSettings per frame
+        ↓
+[audio::generate()]  →  Vec<f32> stereo samples (interleaved L/R)
+        ↓
+[encode as raw PCM]
+        ↓
+[pipe to ffmpeg alongside video frames]
+        ↓
+ffmpeg muxes audio + video → output.mp4
