@@ -43,7 +43,11 @@ jobs:
           cp configuration.toml release/ || echo "No config file found"
           cp -r assets/ release/ || echo "No assets folder found"
           # Add ffmpeg for each platform here
-          cd release && zip -r ../rsvp-${{ matrix.target }}.zip . 
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            powershell Compress-Archive -Path release/* -DestinationPath rsvp-${{ matrix.target }}.zip
+          else
+            cd release && zip -r ../rsvp-${{ matrix.target }}.zip .
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
