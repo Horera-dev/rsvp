@@ -43,8 +43,10 @@ jobs:
           cp configuration.toml release/ || echo "No config file found"
           cp -r assets/ release/ || echo "No assets folder found"
           # Add ffmpeg for each platform here
+
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path release/* -DestinationPath rsvp-${{ matrix.target }}.zip
+            # On utilise des guillemets simples pour empêcher Bash d'interpréter l'astérisque
+            powershell "Compress-Archive -Path 'release\*' -DestinationPath 'rsvp-${{ matrix.target }}.zip' -Force"
           else
             cd release && zip -r ../rsvp-${{ matrix.target }}.zip .
           fi
