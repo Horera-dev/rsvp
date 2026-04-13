@@ -7,15 +7,6 @@ on:
       - 'v*'   # triggers on v1.0.0, v1.2.3, etc.
   workflow_dispatch:
 
-uses: 
-
-uses: softprops/action-gh-release@v2
-        with:
-          files: rsvp-${{ matrix.target }}.zip
-          tag_name: ${{ github.ref_name }} # Utilise le nom de la branche ou du tag
-          draft: ${{ github.event_name == 'workflow_dispatch' }} # En brouillon si manuel
-          prerelease: false
-
 jobs:
   build:
     strategy:
