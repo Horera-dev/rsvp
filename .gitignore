@@ -1,6 +1,10 @@
 target
 out
 rsvp
+release
+installer_output
+
+ffmpeg.exe
 
 *.png
 *.mp4
