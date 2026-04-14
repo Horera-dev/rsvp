@@ -16,7 +16,7 @@ Chaque paragraphe devient un block automatiquement.
 Restes concentré.
 Affiche un mot mis en
 
-@flash color=#FF4444 fade_frames=12
+@flash color=#FF4444 bgColor=#FFFFFF
 
 Avant
 
